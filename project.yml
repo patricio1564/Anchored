@@ -1,0 +1,98 @@
+# project.yml — XcodeGen spec for Anchored
+#
+# Usage:
+#   brew install xcodegen
+#   cd Anchored       (the folder containing this file)
+#   xcodegen generate
+#
+# This produces Anchored.xcodeproj. Open it in Xcode and Run.
+# Regenerate any time new files are added — XcodeGen will re-sync the
+# project structure from disk. Source changes are never lost because
+# the generator only touches the .xcodeproj, not your Swift files.
+
+name: Anchored
+
+options:
+  bundleIdPrefix: com.anchored
+  deploymentTarget:
+    iOS: "17.0"      # iOS 17 minimum: needed for @Observable macro, SwiftData
+                     # improvements, and ContentUnavailableView. (Your PRD said
+                     # iOS 16 but SwiftData is significantly better on 17+.)
+  developmentLanguage: en
+  xcodeVersion: "15.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""                  # fill this in when you're ready to run on device
+    CODE_SIGN_STYLE: "Automatic"
+    SWIFT_STRICT_CONCURRENCY: "minimal"   # bump to "complete" once the app stabilizes
+    ENABLE_USER_SCRIPT_SANDBOXING: "YES"
+
+targets:
+  Anchored:
+    type: application
+    platform: iOS
+    sources:
+      - path: Anchored
+        excludes:
+          - "**/.DS_Store"
+    resources: []
+    info:
+      path: Anchored/Info.plist
+      properties:
+        CFBundleDisplayName: Anchored
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen:
+          UIColorName: ""
+          UIImageName: ""
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
+        # Notification permission copy — shown only when we first ask for it.
+        NSUserNotificationsUsageDescription: "Anchored uses notifications to remind you of your daily verse and prayer reminders."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.anchored.app
+        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleDefault
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        INFOPLIST_KEY_CFBundleDisplayName: Anchored
+        TARGETED_DEVICE_FAMILY: "1,2"     # iPhone + iPad
+        SUPPORTS_MACCATALYST: "NO"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        GENERATE_INFOPLIST_FILE: "YES"    # let Xcode generate the bulk; we override keys above
+    entitlements:
+      path: Anchored/Anchored.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+
+schemes:
+  Anchored:
+    build:
+      targets:
+        Anchored: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    archive:
+      config: Release
