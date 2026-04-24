@@ -58,6 +58,7 @@ struct ProfileView: View {
     @State private var showResetConfirm = false
     @State private var selectedAchievement: Achievement?
     @State private var isRestoring = false
+    @State private var showOfferCodeSheet = false
 
     var body: some View {
         ScrollView {
@@ -81,6 +82,9 @@ struct ProfileView: View {
         .task { await bootstrap() }
         .sheet(isPresented: $premiumManager.isShowingPaywall) {
             PaywallSheet()
+        }
+        .sheet(isPresented: $showOfferCodeSheet) {
+            OfferCodeSheet(premiumManager: premiumManager, isPresented: $showOfferCodeSheet)
         }
         .sheet(item: $selectedAchievement) { achievement in
             AchievementDetailSheet(achievement: achievement, snapshot: buildSnapshot())
@@ -193,34 +197,44 @@ struct ProfileView: View {
     }
 
     private var upgradeCard: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(AnchoredColors.amber.opacity(0.14))
-                    .frame(width: 44, height: 44)
-                Image(systemName: "star.fill")
-                    .foregroundStyle(AnchoredColors.amber)
-                    .font(.system(size: 18))
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(AnchoredColors.amber.opacity(0.14))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "star.fill")
+                        .foregroundStyle(AnchoredColors.amber)
+                        .font(.system(size: 18))
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Unlock Premium")
+                        .anchoredStyle(.bodyMd)
+                        .foregroundStyle(AnchoredColors.navy)
+                    Text("All translations, verse highlights, and more.")
+                        .anchoredStyle(.caption)
+                        .foregroundStyle(AnchoredColors.muted)
+                }
+                Spacer()
+                Button {
+                    premiumManager.presentPaywall()
+                } label: {
+                    Text("Upgrade")
+                        .anchoredStyle(.label)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(AnchoredColors.amber)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Unlock Premium")
-                    .anchoredStyle(.bodyMd)
-                    .foregroundStyle(AnchoredColors.navy)
-                Text("All translations, verse highlights, and more.")
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.muted)
-            }
-            Spacer()
             Button {
-                premiumManager.presentPaywall()
+                showOfferCodeSheet = true
             } label: {
-                Text("Upgrade")
-                    .anchoredStyle(.label)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(AnchoredColors.amber)
-                    .clipShape(Capsule())
+                Text("Have an offer code?")
+                    .anchoredStyle(.caption)
+                    .foregroundStyle(AnchoredColors.amber)
             }
             .buttonStyle(.plain)
         }
@@ -655,6 +669,99 @@ struct ProfileView: View {
             longestStreak: streak?.longestStreak ?? 0,
             totalXP: streak?.totalXP ?? 0
         )
+    }
+}
+
+// MARK: - Offer Code Sheet
+
+private struct OfferCodeSheet: View {
+    let premiumManager: PremiumManager
+    @Binding var isPresented: Bool
+    @State private var code = ""
+    @State private var result: PremiumManager.RedeemResult?
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                ZStack {
+                    Circle()
+                        .fill(AnchoredColors.amber.opacity(0.14))
+                        .frame(width: 64, height: 64)
+                    Image(systemName: "ticket.fill")
+                        .foregroundStyle(AnchoredColors.amber)
+                        .font(.system(size: 26))
+                }
+                .padding(.top, 8)
+
+                Text("Redeem Offer Code")
+                    .anchoredStyle(.h3)
+                    .foregroundStyle(AnchoredColors.navy)
+
+                Text("Enter your code to unlock Anchored Premium.")
+                    .anchoredStyle(.body)
+                    .foregroundStyle(AnchoredColors.muted)
+                    .multilineTextAlignment(.center)
+
+                TextField("e.g. ANCHORED-BETA", text: $code)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .padding(14)
+                    .background(AnchoredColors.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(AnchoredColors.border, lineWidth: 1)
+                    )
+
+                if let result {
+                    switch result {
+                    case .success:
+                        Label("Premium unlocked!", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .anchoredStyle(.bodyMd)
+                    case .invalid:
+                        Label("Invalid code. Please try again.", systemImage: "xmark.circle.fill")
+                            .foregroundStyle(AnchoredColors.error)
+                            .anchoredStyle(.bodyMd)
+                    case .alreadyRedeemed:
+                        Label("A code has already been redeemed on this device.", systemImage: "info.circle.fill")
+                            .foregroundStyle(AnchoredColors.muted)
+                            .anchoredStyle(.bodyMd)
+                    }
+                }
+
+                Button {
+                    let r = premiumManager.redeemOfferCode(code)
+                    result = r
+                    if r == .success {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                            isPresented = false
+                        }
+                    }
+                } label: {
+                    Text("Redeem")
+                        .anchoredStyle(.bodyMd)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(code.isEmpty ? AnchoredColors.amber.opacity(0.4) : AnchoredColors.amber)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .disabled(code.isEmpty)
+                .buttonStyle(.plain)
+
+                Spacer()
+            }
+            .screenPadding()
+            .background(AnchoredColors.parchment.ignoresSafeArea())
+            .navigationTitle("Offer Code")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { isPresented = false }
+                }
+            }
+        }
     }
 }
 

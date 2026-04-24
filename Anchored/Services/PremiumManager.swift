@@ -25,7 +25,16 @@ final class PremiumManager: ObservableObject {
     static let monthlyProductID = "com.anchored.app.premium.monthly"
     static let yearlyProductID  = "com.anchored.app.premium.yearly"
 
+    private static let validOfferCodes: Set<String> = [
+        "ANCHORED-BETA",
+        "FRIENDS2024",
+        "FAMILY2024"
+    ]
+    private static let redeemedCodeKey = "anchoredRedeemedOfferCode"
+
     enum Plan { case monthly, yearly }
+
+    enum RedeemResult { case success, invalid, alreadyRedeemed }
 
     // MARK: - Published state
 
@@ -99,6 +108,21 @@ final class PremiumManager: ObservableObject {
         }
     }
 
+    func redeemOfferCode(_ code: String) -> RedeemResult {
+        let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !normalized.isEmpty else { return .invalid }
+        if UserDefaults.standard.string(forKey: Self.redeemedCodeKey) != nil {
+            return .alreadyRedeemed
+        }
+        guard Self.validOfferCodes.contains(normalized) else {
+            return .invalid
+        }
+        UserDefaults.standard.set(normalized, forKey: Self.redeemedCodeKey)
+        isPremium = true
+        isShowingPaywall = false
+        return .success
+    }
+
     func restorePurchases() async {
         do {
             try await AppStore.sync()
@@ -128,6 +152,9 @@ final class PremiumManager: ObservableObject {
                transaction.revocationDate == nil {
                 hasAccess = true
             }
+        }
+        if UserDefaults.standard.string(forKey: Self.redeemedCodeKey) != nil {
+            hasAccess = true
         }
         isPremium = hasAccess
     }
