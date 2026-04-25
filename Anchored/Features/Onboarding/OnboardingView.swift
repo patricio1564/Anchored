@@ -528,7 +528,7 @@ struct OnboardingView: View {
 
             VStack(spacing: 12) {
                 SignInWithAppleButton(.continue) { request in
-                    request.requestedScopes = [.fullName, .email]
+                    request.requestedScopes = [.fullName]
                 } onCompletion: { result in
                     switch result {
                     case .success(let auth):
@@ -553,8 +553,8 @@ struct OnboardingView: View {
 
                 #if DEBUG
                 Button("Skip sign in (debug)") {
-                    saveOnboardingAnswers(userId: "dev-user-001")
-                    authManager.completeSignIn(userId: "dev-user-001", displayName: "Patrick")
+                    saveOnboardingAnswers(userId: "00000000-0000-0000-0000-000000000000")
+                    authManager.completeSignIn(userId: "00000000-0000-0000-0000-000000000000", displayName: "Test User")
                 }
                 .anchoredStyle(.caption)
                 .foregroundStyle(AnchoredColors.muted)

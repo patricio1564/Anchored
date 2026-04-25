@@ -3,10 +3,10 @@
 //  Anchored
 //
 //  Authentication state holder backed by Sign in with Apple.
-//  - User identifier is persisted to Keychain (survives app re-installs
-//    as long as the device hasn't been wiped).
-//  - Display name is stored in UserDefaults (Apple only returns it on
-//    the *first* successful sign-in, so we cache it ourselves).
+//  - User identifier and display name are both persisted to Keychain
+//    (survives app re-installs as long as the device hasn't been wiped).
+//    Apple only returns the display name on the first successful sign-in,
+//    so we cache it ourselves in the Keychain.
 //  - On launch we verify the stored credential is still valid with
 //    ASAuthorizationAppleIDProvider before restoring .signedIn state.
 //
@@ -44,9 +44,9 @@ final class AuthManager: ObservableObject {
 
     /// Called from OnboardingView after a successful ASAuthorization.
     func completeSignIn(userId: String, displayName: String?) {
-        saveToKeychain(userId: userId)
+        saveToKeychain(value: userId, account: Self.keychainAccount)
         if let displayName {
-            UserDefaults.standard.set(displayName, forKey: Self.displayNameKey)
+            saveToKeychain(value: displayName, account: Self.displayNameAccount)
         }
         state = .signedIn(userId: userId, displayName: displayName)
     }
@@ -54,8 +54,8 @@ final class AuthManager: ObservableObject {
     /// Sign out — clears keychain and in-memory state. SwiftData rows are kept
     /// so signing back in on the same device restores progress.
     func signOut() {
-        deleteFromKeychain()
-        UserDefaults.standard.removeObject(forKey: Self.displayNameKey)
+        deleteFromKeychain(account: Self.keychainAccount)
+        deleteFromKeychain(account: Self.displayNameAccount)
         state = .signedOut
     }
 
@@ -72,7 +72,7 @@ final class AuthManager: ObservableObject {
         let credentialState = (try? await provider.credentialState(forUserID: userId)) ?? .revoked
 
         if credentialState == .authorized {
-            let displayName = UserDefaults.standard.string(forKey: Self.displayNameKey)
+            let displayName = loadFromKeychain(account: Self.displayNameAccount)
             state = .signedIn(userId: userId, displayName: displayName)
         } else {
             // Revoked or transferred — treat as signed out.
@@ -83,24 +83,25 @@ final class AuthManager: ObservableObject {
 
     // MARK: - Keychain
 
-    private static let keychainAccount = "anchored.apple-user-id"
-    private static let displayNameKey  = "anchored.display-name"
+    private static let keychainAccount    = "anchored.apple-user-id"
+    private static let displayNameAccount = "anchored.display-name"
 
-    private func saveToKeychain(userId: String) {
-        guard let data = userId.data(using: .utf8) else { return }
+    private func saveToKeychain(value: String, account: String) {
+        guard let data = value.data(using: .utf8) else { return }
         let query: [CFString: Any] = [
-            kSecClass:       kSecClassGenericPassword,
-            kSecAttrAccount: Self.keychainAccount,
-            kSecValueData:   data
+            kSecClass:              kSecClassGenericPassword,
+            kSecAttrAccount:        account,
+            kSecValueData:          data,
+            kSecAttrAccessible:     kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
         SecItemDelete(query as CFDictionary)
         SecItemAdd(query as CFDictionary, nil)
     }
 
-    private func loadFromKeychain() -> String? {
+    private func loadFromKeychain(account: String) -> String? {
         let query: [CFString: Any] = [
             kSecClass:       kSecClassGenericPassword,
-            kSecAttrAccount: Self.keychainAccount,
+            kSecAttrAccount: account,
             kSecReturnData:  true,
             kSecMatchLimit:  kSecMatchLimitOne
         ]
@@ -110,12 +111,20 @@ final class AuthManager: ObservableObject {
         return String(data: data, encoding: .utf8)
     }
 
-    private func deleteFromKeychain() {
+    private func deleteFromKeychain(account: String) {
         let query: [CFString: Any] = [
             kSecClass:       kSecClassGenericPassword,
-            kSecAttrAccount: Self.keychainAccount
+            kSecAttrAccount: account
         ]
         SecItemDelete(query as CFDictionary)
+    }
+
+    private func loadFromKeychain() -> String? {
+        loadFromKeychain(account: Self.keychainAccount)
+    }
+
+    private func deleteFromKeychain() {
+        deleteFromKeychain(account: Self.keychainAccount)
     }
 }
 
@@ -125,7 +134,7 @@ final class AuthManager: ObservableObject {
 extension AuthManager {
     static var preview: AuthManager {
         let m = AuthManager()
-        m.state = .signedIn(userId: "preview-user", displayName: "Patrick")
+        m.state = .signedIn(userId: "00000000-0000-0000-0000-000000000000", displayName: "Preview User")
         return m
     }
 }

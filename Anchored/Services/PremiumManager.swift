@@ -18,6 +18,7 @@
 import Foundation
 import Combine
 import StoreKit
+import Security
 
 @MainActor
 final class PremiumManager: ObservableObject {
@@ -30,7 +31,7 @@ final class PremiumManager: ObservableObject {
         "FRIENDS2024",
         "FAMILY2024"
     ]
-    private static let redeemedCodeKey = "anchoredRedeemedOfferCode"
+    private static let redeemedCodeKeychainAccount = "anchored.redeemed-offer-code"
 
     enum Plan { case monthly, yearly }
 
@@ -110,14 +111,15 @@ final class PremiumManager: ObservableObject {
 
     func redeemOfferCode(_ code: String) -> RedeemResult {
         let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard !normalized.isEmpty else { return .invalid }
-        if UserDefaults.standard.string(forKey: Self.redeemedCodeKey) != nil {
+        guard !normalized.isEmpty, (1...50).contains(normalized.count) else { return .invalid }
+        guard normalized.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }) else { return .invalid }
+        if keychainLoad(account: Self.redeemedCodeKeychainAccount) != nil {
             return .alreadyRedeemed
         }
         guard Self.validOfferCodes.contains(normalized) else {
             return .invalid
         }
-        UserDefaults.standard.set(normalized, forKey: Self.redeemedCodeKey)
+        keychainSave(value: normalized, account: Self.redeemedCodeKeychainAccount)
         isPremium = true
         isShowingPaywall = false
         return .success
@@ -153,7 +155,7 @@ final class PremiumManager: ObservableObject {
                 hasAccess = true
             }
         }
-        if UserDefaults.standard.string(forKey: Self.redeemedCodeKey) != nil {
+        if keychainLoad(account: Self.redeemedCodeKeychainAccount) != nil {
             hasAccess = true
         }
         isPremium = hasAccess
@@ -175,6 +177,33 @@ final class PremiumManager: ObservableObject {
         case .unverified(_, let error): throw error
         case .verified(let value): return value
         }
+    }
+
+    // MARK: - Keychain helpers
+
+    private func keychainSave(value: String, account: String) {
+        guard let data = value.data(using: .utf8) else { return }
+        let query: [CFString: Any] = [
+            kSecClass:          kSecClassGenericPassword,
+            kSecAttrAccount:    account,
+            kSecValueData:      data,
+            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+        SecItemDelete(query as CFDictionary)
+        SecItemAdd(query as CFDictionary, nil)
+    }
+
+    private func keychainLoad(account: String) -> String? {
+        let query: [CFString: Any] = [
+            kSecClass:       kSecClassGenericPassword,
+            kSecAttrAccount: account,
+            kSecReturnData:  true,
+            kSecMatchLimit:  kSecMatchLimitOne
+        ]
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     // MARK: - Debug
