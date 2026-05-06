@@ -50,7 +50,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		066A5B1051D2A222D5AA0296 /* Anchored.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Anchored.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		066A5B1051D2A222D5AA0296 /* Anchored.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Anchored.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D07E2A116FF23CF54E6330E /* BibleCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleCatalog.swift; sourceTree = "<group>"; };
 		0EB0627B30024E2C052762C4 /* AnchoredTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchoredTypography.swift; sourceTree = "<group>"; };
 		0F8368DDDE8AC6CB57B4FA26 /* TopicCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicCatalog.swift; sourceTree = "<group>"; };
@@ -127,6 +127,13 @@
 			path = Quiz;
 			sourceTree = "<group>";
 		};
+		1D50ED322E98D4C03E2B6542 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		4066173D646F65932FFF2428 /* Topics */ = {
 			isa = PBXGroup;
 			children = (
@@ -136,6 +143,13 @@
 			path = Topics;
 			sourceTree = "<group>";
 		};
+		44D84D69C6F6EE1A20E199F1 /* VerseRecommender */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = VerseRecommender;
+			sourceTree = "<group>";
+		};
 		4E483D5B99DE88434B978DCB /* Anchored */ = {
 			isa = PBXGroup;
 			children = (
@@ -143,6 +157,7 @@
 				8A11653B510353ACA3FDA14E /* Content */,
 				E22C34133E97AEE1E8A9DF6A /* Features */,
 				0BCF175BC904C1FD596E0E7F /* Models */,
+				1D50ED322E98D4C03E2B6542 /* Resources */,
 				E1A2A1642446DD15483BEC49 /* Services */,
 				7BE8925B6A08010054487CC9 /* Theme */,
 				B7DCB3BB98AA83469515778B /* Anchored.entitlements */,
@@ -189,6 +204,13 @@
 				0F8368DDDE8AC6CB57B4FA26 /* TopicCatalog.swift */,
 			);
 			path = Content;
+			sourceTree = "<group>";
+		};
+		9577C4498143520EE72D98AA /* Achievements */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Achievements;
 			sourceTree = "<group>";
 		};
 		A8B32B00144E73E6140A152C = {
@@ -260,15 +282,18 @@
 		E22C34133E97AEE1E8A9DF6A /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				9577C4498143520EE72D98AA /* Achievements */,
 				DED355ADD52531D01BF8846D /* Bible */,
 				F06525D680908C334E9F9444 /* Home */,
 				D98914324A9DAD0EF7CA4E61 /* Journal */,
 				E9BDA83AF2B9582CB5369520 /* Lesson */,
 				D809E5282B24631381EAF885 /* Onboarding */,
+				F15CEB8B67E4F2D29629EC30 /* Premium */,
 				ACC114486DA43B9271444E36 /* Profile */,
 				178BA259E56FB4569807C5C5 /* Quiz */,
 				7B26346DFE966BA42208F09E /* Shared */,
 				4066173D646F65932FFF2428 /* Topics */,
+				44D84D69C6F6EE1A20E199F1 /* VerseRecommender */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -287,6 +312,13 @@
 				7D3B8B1C8F7DEA3E6F6425A6 /* HomeView.swift */,
 			);
 			path = Home;
+			sourceTree = "<group>";
+		};
+		F15CEB8B67E4F2D29629EC30 /* Premium */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Premium;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -320,7 +352,6 @@
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					B688C0B300C8B1EF44B70441 = {
-						DevelopmentTeam = 28HN686K66;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -412,12 +443,15 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Anchored/Anchored.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 28HN686K66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Anchored/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Anchored - Learn the Bible";
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Anchored;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_UIRequiredDeviceCapabilities = arm64;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -466,7 +500,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 28HN686K66;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -528,7 +562,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 28HN686K66;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -567,12 +601,15 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Anchored/Anchored.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 28HN686K66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Anchored/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Anchored - Learn the Bible";
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Anchored;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_UIRequiredDeviceCapabilities = arm64;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
