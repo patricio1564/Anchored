@@ -69,7 +69,7 @@ targets:
         NSUserNotificationsUsageDescription: "Anchored uses notifications to remind you of your daily verse and prayer reminders."
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.anchored.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.ios.anchoredbibleapp
         INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleDefault
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"

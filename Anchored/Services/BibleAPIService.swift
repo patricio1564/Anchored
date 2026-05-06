@@ -75,7 +75,8 @@ struct BiblePassage: Hashable, Sendable {
     let translationID: String
 }
 
-struct BibleVerse: Hashable, Sendable {
+struct BibleVerse: Hashable, Identifiable, Sendable {
+    var id: String { "\(bookName)-\(chapter)-\(verse)" }
     let bookName: String
     let chapter: Int
     let verse: Int
