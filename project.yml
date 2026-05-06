@@ -30,7 +30,7 @@ settings:
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
-    DEVELOPMENT_TEAM: ""                  # fill this in when you're ready to run on device
+    DEVELOPMENT_TEAM: "28HN686K66"
     CODE_SIGN_STYLE: "Automatic"
     SWIFT_STRICT_CONCURRENCY: "minimal"   # bump to "complete" once the app stabilizes
     ENABLE_USER_SCRIPT_SANDBOXING: "YES"
@@ -73,7 +73,7 @@ targets:
         INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleDefault
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
-        INFOPLIST_KEY_CFBundleDisplayName: Anchored
+        INFOPLIST_KEY_CFBundleDisplayName: Anchored - Learn the Bible
         TARGETED_DEVICE_FAMILY: "1,2"     # iPhone + iPad
         SUPPORTS_MACCATALYST: "NO"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
