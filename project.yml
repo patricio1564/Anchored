@@ -47,7 +47,7 @@ targets:
     info:
       path: Anchored/Info.plist
       properties:
-        CFBundleDisplayName: Anchored
+        CFBundleDisplayName: Anchored - Learn the Bible
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen:
