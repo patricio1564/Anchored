@@ -26,16 +26,25 @@ struct AnchoredApp: App {
             SavedVerse.self,
             UserSettings.self
         ])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
+        let cloudConfig = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .automatic
+        )
 
         do {
-            return try ModelContainer(for: schema, configurations: [config])
+            return try ModelContainer(for: schema, configurations: [cloudConfig])
         } catch {
-            assertionFailure("SwiftData container failed: \(error). Falling back to in-memory.")
-            let memConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-            // Force unwrap is acceptable here — if even the in-memory store fails,
-            // the app is unusable and we want to crash loudly in development.
-            return try! ModelContainer(for: schema, configurations: [memConfig])
+            print("[Anchored] CloudKit container init failed (\(error)). Falling back to local store.")
+            let localConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+            do {
+                return try ModelContainer(for: schema, configurations: [localConfig])
+            } catch {
+                print("[Anchored] SwiftData local container also failed: \(error). Using in-memory.")
+                let memConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                return try! ModelContainer(for: schema, configurations: [memConfig])
+            }
         }
     }()
 
