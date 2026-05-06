@@ -1,12 +1,6 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - BibleVerse: Identifiable
-
-extension BibleVerse: @retroactive Identifiable {
-    public var id: String { "\(bookName)-\(chapter)-\(verse)" }
-}
-
 // MARK: - BiblePassageView
 
 struct BiblePassageView: View {
