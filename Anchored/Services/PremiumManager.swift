@@ -10,8 +10,8 @@
 //  ─── Setup ──────────────────────────────────────────────────────────────
 //  1. Create products in App Store Connect:
 //       Your App → Monetization → Subscriptions → "+"
-//       - Auto-renewing monthly: com.anchored.app.premium.monthly
-//       - Auto-renewing yearly:  com.anchored.app.premium.yearly
+//       - Auto-renewing weekly:  AnchoredWeekly
+//       - Auto-renewing yearly:  AnchoredYearly
 //  2. Add a StoreKit Configuration file for local testing with both IDs.
 //  ────────────────────────────────────────────────────────────────────────
 
@@ -23,8 +23,8 @@ import Security
 @MainActor
 final class PremiumManager: ObservableObject {
 
-    static let monthlyProductID = "com.anchored.app.premium.monthly"
-    static let yearlyProductID  = "com.anchored.app.premium.yearly"
+    static let weeklyProductID = "AnchoredWeekly"
+    static let yearlyProductID  = "AnchoredYearly"
 
     private static let validOfferCodes: Set<String> = [
         "ANCHORED-BETA",
@@ -33,7 +33,7 @@ final class PremiumManager: ObservableObject {
     ]
     private static let redeemedCodeKeychainAccount = "anchored.redeemed-offer-code"
 
-    enum Plan { case monthly, yearly }
+    enum Plan { case weekly, yearly }
 
     enum RedeemResult { case success, invalid, alreadyRedeemed }
 
@@ -41,12 +41,12 @@ final class PremiumManager: ObservableObject {
 
     @Published private(set) var isPremium: Bool = false
     @Published var isShowingPaywall: Bool = false
-    @Published private(set) var monthlyProduct: Product?
+    @Published private(set) var weeklyProduct: Product?
     @Published private(set) var yearlyProduct: Product?
     @Published private(set) var purchaseState: PurchaseState = .idle
 
     /// Convenience for callers that only need one product reference (e.g. old PaywallSheet).
-    var product: Product? { yearlyProduct ?? monthlyProduct }
+    var product: Product? { yearlyProduct ?? weeklyProduct }
 
     enum PurchaseState: Equatable {
         case idle
@@ -85,7 +85,7 @@ final class PremiumManager: ObservableObject {
     }
 
     func purchase(_ plan: Plan = .yearly) async {
-        let product = plan == .yearly ? yearlyProduct : monthlyProduct
+        let product = plan == .yearly ? yearlyProduct : weeklyProduct
         guard let product else { return }
         purchaseState = .purchasing
         do {
@@ -137,11 +137,11 @@ final class PremiumManager: ObservableObject {
     // MARK: - Private
 
     private func fetchProducts() async {
-        let ids = [Self.monthlyProductID, Self.yearlyProductID]
+        let ids = [Self.weeklyProductID, Self.yearlyProductID]
         guard let products = try? await Product.products(for: ids) else { return }
         for p in products {
-            if p.id == Self.monthlyProductID { monthlyProduct = p }
-            if p.id == Self.yearlyProductID  { yearlyProduct  = p }
+            if p.id == Self.weeklyProductID { weeklyProduct = p }
+            if p.id == Self.yearlyProductID { yearlyProduct = p }
         }
     }
 
@@ -149,7 +149,7 @@ final class PremiumManager: ObservableObject {
         var hasAccess = false
         for await result in Transaction.currentEntitlements {
             guard let transaction = try? checkVerified(result) else { continue }
-            let knownIDs = [Self.monthlyProductID, Self.yearlyProductID]
+            let knownIDs = [Self.weeklyProductID, Self.yearlyProductID]
             if knownIDs.contains(transaction.productID),
                transaction.revocationDate == nil {
                 hasAccess = true
