@@ -682,10 +682,10 @@ struct OnboardingView: View {
 
                 // Feature list card
                 onboardingCard {
-                    featureRow(icon: "book.fill",          text: "All 5 Bible translations")
-                    featureRow(icon: "highlighter",         text: "Verse highlighting & notes")
-                    featureRow(icon: "sparkles",            text: "Unlimited AI verse recommendations")
-                    featureRow(icon: "bell.fill",           text: "Daily verse push notifications")
+                    featureRow(icon: "book.fill", text: "All 35 topics & 176 lessons")
+                    featureRow(icon: "globe", text: "5 Bible translations")
+                    featureRow(icon: "sparkles", text: "Verse Recommender")
+                    featureRow(icon: "arrow.down.circle.fill", text: "All future content")
                 }
 
                 // Plan cards side by side
@@ -716,7 +716,7 @@ struct OnboardingView: View {
 
                 // Apple disclosures
                 VStack(spacing: 8) {
-                    Text("Subscriptions auto-renew until canceled. Cancel anytime in your Apple ID settings. Prices may vary by region.")
+                    Text("Payment will be charged to your Apple Account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period.")
                         .anchoredStyle(.caption)
                         .foregroundStyle(AnchoredColors.parchment.opacity(0.4))
                         .multilineTextAlignment(.center)
