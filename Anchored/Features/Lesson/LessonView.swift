@@ -1,32 +1,30 @@
 // ────────────────────────────────────────────────────────────────────────────
 // LessonView.swift
 //
-// The heart of the learning flow. A three-phase screen:
+// The heart of the learning flow. A multi-phase screen:
 //
-//   1. READING — Teaching prose + key verse + "Start Challenge" CTA.
-//   2. QUIZ    — One QuizQuestionCard at a time with a live combo badge.
-//   3. RESULTS — Animated score ring, XP breakdown, wrong-answer review,
-//                and a "Done" button that pops back to the topic.
+//   1. READING  — Bible text displayed one chapter at a time with "Next"
+//                 navigation. Compound references (e.g. "Romans 3; 5; 8")
+//                 are parsed and fetched concurrently.
+//   2. CHAPTER QUIZ (iOS 26+ only) — 1-2 generated comprehension questions
+//                 after each chapter, using Foundation Models.
+//   3. TEACHING — lesson.teaching shown as post-reading commentary/context.
+//                 Never displayed as a scripture substitute.
+//   4. QUIZ     — Hand-written QuizQuestionCard questions with combo badge.
+//   5. RESULTS  — Animated score ring, XP breakdown, wrong-answer review.
 //
 // Integration points:
 //   • Constructed with a Topic + Lesson (Hashable) via NavigationStack route.
 //   • Uses @Environment(StreakManager.self) to award XP and check in.
-//     StreakManager is constructed per-screen in parent views (.task), so we
-//     expect it to already be in the environment by the time this view runs.
 //   • Writes a LessonProgress row on completion. lessonId is @Attribute(.unique),
-//     so retakes UPDATE the existing row — never insert a duplicate. Scores
-//     only improve (we keep the best).
+//     so retakes UPDATE the existing row — never insert a duplicate.
 //
-// XP math (matches Base44 reference):
-//   • +10 per correct answer
+// XP math (unchanged from original):
+//   • +10 per correct answer (final quiz only)
 //   • +5 combo bonus for each correct answer that extends a streak of 3+
 //   • +50 perfect-score bonus
-//   • +25 first-time-completion bonus (only on the first time the lesson
-//     transitions to completed = true)
-//
-// All XP is summed locally and awarded in ONE call to StreakManager.awardXP
-// at the end. StreakManager's checkIn() is also called once here so a
-// completed lesson counts toward the daily streak.
+//   • +25 first-time-completion bonus
+//   No XP for comprehension checks.
 // ────────────────────────────────────────────────────────────────────────────
 
 import SwiftUI
@@ -43,27 +41,44 @@ struct LessonView: View {
     @Environment(StreakManager.self) private var streakManager
     @EnvironmentObject private var premiumManager: PremiumManager
 
-    // We need to know if this lesson was already completed BEFORE this
-    // attempt so we can decide whether to award the first-completion bonus.
-    // We don't use @Query here because we only need a one-shot read at launch.
     @State private var priorProgress: LessonProgress? = nil
 
     // MARK: - Scripture fetch
 
     @AppStorage("preferredBibleTranslation") private var preferredTranslation: BibleTranslation = .web
-    @State private var scripturePassage: BiblePassage?
-    @State private var scriptureLoading = false
+
+    /// Parsed individual references from ScriptureReferenceParser.
+    @State private var chapterReferences: [String] = []
+    /// Fetched passages indexed by chapter position. nil = not yet loaded.
+    @State private var chapterPassages: [Int: BiblePassage] = [:]
+    /// Per-chapter loading state.
+    @State private var chapterLoading: [Int: Bool] = [:]
+    /// Per-chapter error state.
+    @State private var chapterErrors: [Int: Error] = [:]
+
+    // MARK: - Comprehension quiz state
+
+    /// Generated comprehension questions per chapter index.
+    @State private var comprehensionQuestions: [Int: [QuizQuestion]] = [:]
+    @State private var comprehensionIndex = 0
+    @State private var comprehensionAnswered = false
 
     // MARK: - Flow state
 
-    private enum Phase { case reading, quiz, results }
-    @State private var phase: Phase = .reading
+    private enum Phase: Equatable {
+        case reading(chapterIndex: Int)
+        case chapterQuiz(chapterIndex: Int)
+        case teaching
+        case quiz
+        case results
+    }
 
+    @State private var phase: Phase = .reading(chapterIndex: 0)
+
+    // Final quiz state
     @State private var currentIndex = 0
     @State private var combo = 0
-    @State private var answers: [AnswerRecord] = []   // one per question, in original order
-
-    /// What was earned this session. Computed at results time.
+    @State private var answers: [AnswerRecord] = []
     @State private var earnedXP = 0
 
     // MARK: - Body
@@ -72,9 +87,16 @@ struct LessonView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 switch phase {
-                case .reading: readingPhase
-                case .quiz:    quizPhase
-                case .results: resultsPhase
+                case .reading(let chapterIndex):
+                    chapterReadingPhase(chapterIndex: chapterIndex)
+                case .chapterQuiz(let chapterIndex):
+                    chapterQuizPhase(chapterIndex: chapterIndex)
+                case .teaching:
+                    teachingPhase
+                case .quiz:
+                    quizPhase
+                case .results:
+                    resultsPhase
                 }
             }
             .screenPadding()
@@ -87,15 +109,15 @@ struct LessonView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             loadPriorProgress()
-            await loadScripture()
+            await loadAllChapters()
         }
     }
 
     // ────────────────────────────────────────────────────────────────────
-    // MARK: - Phase 1: Reading
+    // MARK: - Phase 1: Chapter Reading
     // ────────────────────────────────────────────────────────────────────
 
-    private var readingPhase: some View {
+    private func chapterReadingPhase(chapterIndex: Int) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             // Scripture reference pill.
             HStack(spacing: 6) {
@@ -106,18 +128,25 @@ struct LessonView: View {
             }
             .foregroundStyle(AnchoredColors.amber)
 
-            // Fetched Bible passage — falls back to lesson.teaching if offline.
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Scripture")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AnchoredColors.amber)
-                    .textCase(.uppercase)
+            // Chapter progress indicator (only when multiple chapters).
+            if chapterReferences.count > 1 {
+                chapterProgressIndicator(current: chapterIndex)
+            }
 
-                if scriptureLoading {
+            // Chapter content.
+            VStack(alignment: .leading, spacing: 10) {
+                if chapterReferences.indices.contains(chapterIndex) {
+                    Text(chapterReferences[chapterIndex])
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AnchoredColors.amber)
+                        .textCase(.uppercase)
+                }
+
+                if chapterLoading[chapterIndex] == true {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                } else if let passage = scripturePassage {
+                } else if let passage = chapterPassages[chapterIndex] {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(passage.verses, id: \.self) { verse in
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -133,34 +162,228 @@ struct LessonView: View {
                             }
                         }
                     }
+                } else if chapterErrors[chapterIndex] != nil {
+                    // Error state — retry button, never fall back to lesson.teaching.
+                    VStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.title2)
+                            .foregroundStyle(AnchoredColors.amber)
+                        Text("Could not load this chapter.")
+                            .anchoredStyle(.body)
+                            .foregroundStyle(AnchoredColors.navy)
+                        Button {
+                            Task { await retryChapter(chapterIndex) }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Retry")
+                                    .font(.system(.callout, weight: .semibold))
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(AnchoredColors.amber, in: Capsule())
+                            .foregroundStyle(.white)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
                 } else {
-                    Text(lesson.teaching)
-                        .anchoredStyle(.body)
-                        .foregroundStyle(AnchoredColors.navy)
-                        .fixedSize(horizontal: false, vertical: true)
+                    // Still loading (initial state before task kicks off).
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
                 }
             }
             .cardSurface(padding: 16)
 
-            // Key verse pull-quote.
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Key Verse")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AnchoredColors.amber)
-                    .textCase(.uppercase)
-                Text(lesson.keyVerse)
-                    .anchoredStyle(.scripture)
-                    .foregroundStyle(AnchoredColors.navy)
-                    .fixedSize(horizontal: false, vertical: true)
+            // Key verse pull-quote (show on first chapter only to avoid repetition).
+            if chapterIndex == 0 {
+                keyVerseCard
             }
-            .padding(16)
-            .background(AnchoredColors.amber.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(AnchoredColors.amber.opacity(0.25), lineWidth: 1)
-            )
 
-            // Start button.
+            // Next / Start Teaching / Start Challenge button.
+            chapterNavigationButton(chapterIndex: chapterIndex)
+        }
+        .transition(.opacity)
+    }
+
+    private func chapterProgressIndicator(current: Int) -> some View {
+        HStack(spacing: 8) {
+            Text("Chapter \(current + 1) of \(chapterReferences.count)")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(AnchoredColors.muted)
+                .textCase(.uppercase)
+
+            Spacer()
+
+            // Progress dots.
+            HStack(spacing: 4) {
+                ForEach(0..<chapterReferences.count, id: \.self) { i in
+                    Capsule()
+                        .fill(i < current ? AnchoredColors.amber :
+                              i == current ? AnchoredColors.amber.opacity(0.5) :
+                              AnchoredColors.muted.opacity(0.3))
+                        .frame(width: 18, height: 4)
+                }
+            }
+        }
+    }
+
+    private var keyVerseCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Key Verse")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AnchoredColors.amber)
+                .textCase(.uppercase)
+            Text(lesson.keyVerse)
+                .anchoredStyle(.scripture)
+                .foregroundStyle(AnchoredColors.navy)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .background(AnchoredColors.amber.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(AnchoredColors.amber.opacity(0.25), lineWidth: 1)
+        )
+    }
+
+    /// The button at the bottom of the reading phase. Advances to next chapter,
+    /// comprehension quiz, teaching, or the hand-written quiz.
+    private func chapterNavigationButton(chapterIndex: Int) -> some View {
+        let isLastChapter = chapterIndex + 1 >= chapterReferences.count
+        let hasPassage = chapterPassages[chapterIndex] != nil
+        let buttonLabel = isLastChapter ? "Continue to Reflection" : "Next Chapter"
+        let buttonIcon = isLastChapter ? "text.quote" : "arrow.right"
+
+        return Button {
+            advanceFromReading(chapterIndex: chapterIndex)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: buttonIcon)
+                Text(buttonLabel)
+                    .font(.system(.body, weight: .bold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(AnchoredColors.amber, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .foregroundStyle(.white)
+            .shadow(color: AnchoredColors.amber.opacity(0.3), radius: 8, y: 4)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
+        .disabled(!hasPassage)
+        .opacity(hasPassage ? 1 : 0.5)
+    }
+
+    /// Decide what comes after reading a chapter: comprehension quiz (iOS 26+)
+    /// or advance to next chapter / teaching.
+    private func advanceFromReading(chapterIndex: Int) {
+        // Check if we have comprehension questions for this chapter.
+        if let questions = comprehensionQuestions[chapterIndex], !questions.isEmpty {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                comprehensionIndex = 0
+                comprehensionAnswered = false
+                phase = .chapterQuiz(chapterIndex: chapterIndex)
+            }
+        } else {
+            advanceFromChapterQuiz(chapterIndex: chapterIndex)
+        }
+    }
+
+    /// Advance past a chapter quiz (or skip if none) to the next chapter or teaching.
+    private func advanceFromChapterQuiz(chapterIndex: Int) {
+        let nextChapter = chapterIndex + 1
+        if nextChapter < chapterReferences.count {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                phase = .reading(chapterIndex: nextChapter)
+            }
+        } else {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                phase = .teaching
+            }
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // MARK: - Phase 2: Chapter Comprehension Quiz (iOS 26+ only)
+    // ────────────────────────────────────────────────────────────────────
+
+    private func chapterQuizPhase(chapterIndex: Int) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header.
+            HStack(spacing: 6) {
+                Image(systemName: "brain.head.profile")
+                Text("Comprehension Check")
+                    .font(.caption.weight(.semibold))
+                    .textCase(.uppercase)
+            }
+            .foregroundStyle(AnchoredColors.amber)
+
+            if chapterReferences.count > 1 {
+                Text(chapterReferences[chapterIndex])
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(AnchoredColors.muted)
+            }
+
+            if let questions = comprehensionQuestions[chapterIndex],
+               comprehensionIndex < questions.count {
+                QuizQuestionCard(
+                    question: questions[comprehensionIndex],
+                    questionIndex: comprehensionIndex,
+                    totalQuestions: questions.count,
+                    shuffleSeed: lesson.id.hashValue &+ chapterIndex &* 1000 &+ comprehensionIndex,
+                    onAnswer: { _, _ in
+                        // No XP for comprehension checks. No combo tracking.
+                        comprehensionAnswered = true
+                    },
+                    onContinue: {
+                        let questions = comprehensionQuestions[chapterIndex] ?? []
+                        if comprehensionIndex + 1 < questions.count {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                comprehensionIndex += 1
+                                comprehensionAnswered = false
+                            }
+                        } else {
+                            advanceFromChapterQuiz(chapterIndex: chapterIndex)
+                        }
+                    }
+                )
+                .id("comp-\(chapterIndex)-\(comprehensionIndex)")
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal:   .move(edge: .leading).combined(with: .opacity)
+                ))
+            }
+        }
+        .transition(.opacity)
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // MARK: - Phase 3: Teaching (Post-Reading Commentary)
+    // ────────────────────────────────────────────────────────────────────
+
+    private var teachingPhase: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(spacing: 6) {
+                Image(systemName: "text.quote")
+                Text("Reflection & Context")
+                    .font(.caption.weight(.semibold))
+                    .textCase(.uppercase)
+            }
+            .foregroundStyle(AnchoredColors.amber)
+
+            Text(lesson.teaching)
+                .anchoredStyle(.body)
+                .foregroundStyle(AnchoredColors.navy)
+                .fixedSize(horizontal: false, vertical: true)
+                .cardSurface(padding: 16)
+
+            // Key verse reminder.
+            keyVerseCard
+
+            // Start Challenge button.
             Button {
                 withAnimation(.easeInOut(duration: 0.25)) { phase = .quiz }
             } label: {
@@ -182,7 +405,7 @@ struct LessonView: View {
     }
 
     // ────────────────────────────────────────────────────────────────────
-    // MARK: - Phase 2: Quiz
+    // MARK: - Phase 4: Quiz (Hand-Written Questions)
     // ────────────────────────────────────────────────────────────────────
 
     private var quizPhase: some View {
@@ -191,8 +414,6 @@ struct LessonView: View {
                 comboBadge
             }
 
-            // One question at a time. The .id() modifier forces a fresh
-            // QuizQuestionCard (and fresh local state) per question.
             QuizQuestionCard(
                 question: lesson.questions[currentIndex],
                 questionIndex: currentIndex,
@@ -232,7 +453,7 @@ struct LessonView: View {
     }
 
     // ────────────────────────────────────────────────────────────────────
-    // MARK: - Phase 3: Results
+    // MARK: - Phase 5: Results
     // ────────────────────────────────────────────────────────────────────
 
     private var resultsPhase: some View {
@@ -351,7 +572,7 @@ struct LessonView: View {
     }
 
     // ────────────────────────────────────────────────────────────────────
-    // MARK: - Handlers
+    // MARK: - Quiz Handlers
     // ────────────────────────────────────────────────────────────────────
 
     private func handleAnswer(wasCorrect: Bool, userAnswer: String) {
@@ -381,13 +602,11 @@ struct LessonView: View {
         }
     }
 
-    /// Compute XP, persist the LessonProgress row, check in the streak,
-    /// and flip to the results screen.
     private func finishLesson() {
         earnedXP = calculateXP()
         persistProgress(xp: earnedXP)
         streakManager.awardXP(earnedXP)
-        streakManager.checkIn()
+        _ = streakManager.checkIn()
 
         withAnimation(.easeInOut(duration: 0.3)) {
             phase = .results
@@ -420,8 +639,6 @@ struct LessonView: View {
         }
     }
 
-    /// Walk the answers list in order to compute combo bonuses so the
-    /// total matches what the user saw during the quiz.
     private var comboBonusTotal: Int {
         var running = 0
         var bonus = 0
@@ -445,21 +662,79 @@ struct LessonView: View {
     }
 
     // ────────────────────────────────────────────────────────────────────
-    // MARK: - Persistence
+    // MARK: - Data Loading
     // ────────────────────────────────────────────────────────────────────
 
-    /// Load the pre-existing progress row once, before the user starts
-    /// the quiz. This tells us whether to award the first-completion
-    /// bonus later.
-    private func loadScripture() async {
-        scriptureLoading = true
+    /// Parse the compound reference and fetch all chapters concurrently.
+    private func loadAllChapters() async {
+        let refs = ScriptureReferenceParser.parse(lesson.scripture)
+        chapterReferences = refs
+
         let translation = (preferredTranslation.isFree || premiumManager.isPremium)
             ? preferredTranslation : .web
-        scripturePassage = try? await BibleAPIService.shared.fetch(
-            reference: lesson.scripture,
-            translation: translation
-        )
-        scriptureLoading = false
+
+        // Fetch all chapters concurrently using TaskGroup.
+        await withTaskGroup(of: (Int, Result<BiblePassage, Error>).self) { group in
+            for (index, ref) in refs.enumerated() {
+                chapterLoading[index] = true
+                group.addTask {
+                    do {
+                        let passage = try await BibleAPIService.shared.fetch(
+                            reference: ref,
+                            translation: translation
+                        )
+                        return (index, .success(passage))
+                    } catch {
+                        return (index, .failure(error))
+                    }
+                }
+            }
+
+            for await (index, result) in group {
+                chapterLoading[index] = false
+                switch result {
+                case .success(let passage):
+                    chapterPassages[index] = passage
+                    // Start generating comprehension questions for this chapter
+                    // in the background as soon as it loads.
+                    Task {
+                        let questions = await ChapterQuizGenerator.shared.generate(for: passage)
+                        comprehensionQuestions[index] = questions
+                    }
+                case .failure(let error):
+                    chapterErrors[index] = error
+                }
+            }
+        }
+    }
+
+    /// Retry a single chapter that previously failed.
+    private func retryChapter(_ index: Int) async {
+        guard chapterReferences.indices.contains(index) else { return }
+
+        chapterLoading[index] = true
+        chapterErrors[index] = nil
+
+        let translation = (preferredTranslation.isFree || premiumManager.isPremium)
+            ? preferredTranslation : .web
+
+        do {
+            let passage = try await BibleAPIService.shared.fetch(
+                reference: chapterReferences[index],
+                translation: translation
+            )
+            chapterPassages[index] = passage
+            chapterLoading[index] = false
+
+            // Generate comprehension questions for the retried chapter.
+            Task {
+                let questions = await ChapterQuizGenerator.shared.generate(for: passage)
+                comprehensionQuestions[index] = questions
+            }
+        } catch {
+            chapterErrors[index] = error
+            chapterLoading[index] = false
+        }
     }
 
     private func loadPriorProgress() {
@@ -470,9 +745,6 @@ struct LessonView: View {
         priorProgress = try? modelContext.fetch(descriptor).first
     }
 
-    /// Insert or update the LessonProgress row. lessonId is unique, so
-    /// on retake we MUST fetch-and-mutate rather than insert a duplicate.
-    /// Score is monotonic — we never regress the best score.
     private func persistProgress(xp: Int) {
         let lessonId = lesson.id
         let topicId = topic.id
@@ -484,7 +756,6 @@ struct LessonView: View {
 
         do {
             if let existing = try modelContext.fetch(descriptor).first {
-                // Retake: update in place. Keep best score.
                 existing.completed = true
                 existing.score = max(existing.score, newScore)
                 existing.xpEarned += xp
@@ -509,9 +780,6 @@ struct LessonView: View {
 
 // ────────────────────────────────────────────────────────────────────────────
 // MARK: - AnswerRecord
-//
-// One entry per answered question. Kept in the order they were answered
-// so we can recompute combo bonuses deterministically at results time.
 // ────────────────────────────────────────────────────────────────────────────
 
 private struct AnswerRecord {
@@ -523,9 +791,6 @@ private struct AnswerRecord {
 
 // ────────────────────────────────────────────────────────────────────────────
 // MARK: - ReviewCard
-//
-// Renders one missed question with the user's (wrong) answer and the
-// correct answer, plus the explanation text.
 // ────────────────────────────────────────────────────────────────────────────
 
 private struct ReviewCard: View {
