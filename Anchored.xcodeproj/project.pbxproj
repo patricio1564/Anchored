@@ -29,7 +29,9 @@
 		6E502CFA1D4136B896965046 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 766470C6E7822E84E92DB7E4 /* NotificationService.swift */; };
 		6E547D7C9C478CE4FBAB4E46 /* BibleCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D07E2A116FF23CF54E6330E /* BibleCatalog.swift */; };
 		78C34E7E8222411D91FE5447 /* AnchoredTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EB0627B30024E2C052762C4 /* AnchoredTypography.swift */; };
+		7D3089495B39F674C7C08AA2 /* CloudKitDeduplicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 841CDC208944A69B46AD37DC /* CloudKitDeduplicator.swift */; };
 		816BD8672F6DD2A48EFC6655 /* BibleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28F326E6CBF4525D81B91304 /* BibleView.swift */; };
+		89C28876DB8BF5F5AD51FD9B /* VerseNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5397822A78200BBB2F79B66F /* VerseNotificationScheduler.swift */; };
 		94516A0AB5176866A90E7FB8 /* BibleAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 274F214C2AB463915D0E7D6F /* BibleAPIService.swift */; };
 		958AAEA2A8C2E2B55636F365 /* LessonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88790F8A72D741C5EC5F4DC2 /* LessonView.swift */; };
 		994AF26E470C48B3A3DFE8F2 /* PlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDEBE15E0A4A48C41F749F30 /* PlaceholderView.swift */; };
@@ -43,6 +45,7 @@
 		E023C93533453C2678475EAA /* ViewModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D165B2DEB577B275AF7177A /* ViewModifiers.swift */; };
 		E99A6199DA560934F31954CF /* Achievements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8020D5C5C954A50E87DE651C /* Achievements.swift */; };
 		EB25BBBC06F433407931589A /* FeelingMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 207731DEEFA152D199827A9A /* FeelingMap.swift */; };
+		EBA98BBD35ABDC5998634FA8 /* AppearanceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22F46ABB4120D88B65E80E8B /* AppearanceManager.swift */; };
 		ECE55D23B069C5477569B8BE /* StreakManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FCBABDA38DB3533D95D2467 /* StreakManager.swift */; };
 		EEEC6326591A4125ADAE86AC /* LessonProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C45A38C7C82FB54B65CB9F /* LessonProgress.swift */; };
 		F7E00E8E59E95428BA6DD431 /* BiblePassageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 744C3646B6974E809595D202 /* BiblePassageView.swift */; };
@@ -50,7 +53,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		066A5B1051D2A222D5AA0296 /* Anchored.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Anchored.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		066A5B1051D2A222D5AA0296 /* Anchored.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Anchored.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D07E2A116FF23CF54E6330E /* BibleCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleCatalog.swift; sourceTree = "<group>"; };
 		0EB0627B30024E2C052762C4 /* AnchoredTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchoredTypography.swift; sourceTree = "<group>"; };
 		0F8368DDDE8AC6CB57B4FA26 /* TopicCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicCatalog.swift; sourceTree = "<group>"; };
@@ -58,12 +61,14 @@
 		207731DEEFA152D199827A9A /* FeelingMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeelingMap.swift; sourceTree = "<group>"; };
 		20B46C9C3FFAC3DA556F0BD8 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		20E26343E9D5FE29F844365C /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		22F46ABB4120D88B65E80E8B /* AppearanceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceManager.swift; sourceTree = "<group>"; };
 		26247B97567A457B1EE7A62D /* UserSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettings.swift; sourceTree = "<group>"; };
 		274F214C2AB463915D0E7D6F /* BibleAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleAPIService.swift; sourceTree = "<group>"; };
 		28F326E6CBF4525D81B91304 /* BibleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleView.swift; sourceTree = "<group>"; };
 		383A83BA5E698698A82C081F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3D165B2DEB577B275AF7177A /* ViewModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModifiers.swift; sourceTree = "<group>"; };
 		464B757DD1CDA9DD59DDDC86 /* TopicsCatalog+Generated.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TopicsCatalog+Generated.swift"; sourceTree = "<group>"; };
+		5397822A78200BBB2F79B66F /* VerseNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerseNotificationScheduler.swift; sourceTree = "<group>"; };
 		5958DC90DC0577E95423E1C8 /* UserStreak.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserStreak.swift; sourceTree = "<group>"; };
 		5DEDF00474B34921F53B058F /* QuizQuestionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizQuestionCard.swift; sourceTree = "<group>"; };
 		5FCBABDA38DB3533D95D2467 /* StreakManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakManager.swift; sourceTree = "<group>"; };
@@ -74,6 +79,7 @@
 		7D3B8B1C8F7DEA3E6F6425A6 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		7D4CC7F6C5322CCF0ADF1FC0 /* BibleNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleNote.swift; sourceTree = "<group>"; };
 		8020D5C5C954A50E87DE651C /* Achievements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Achievements.swift; sourceTree = "<group>"; };
+		841CDC208944A69B46AD37DC /* CloudKitDeduplicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitDeduplicator.swift; sourceTree = "<group>"; };
 		88790F8A72D741C5EC5F4DC2 /* LessonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LessonView.swift; sourceTree = "<group>"; };
 		90C45A38C7C82FB54B65CB9F /* LessonProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LessonProgress.swift; sourceTree = "<group>"; };
 		956F68618DF25CE46026DC1E /* Prayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prayer.swift; sourceTree = "<group>"; };
@@ -268,12 +274,15 @@
 		E1A2A1642446DD15483BEC49 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				22F46ABB4120D88B65E80E8B /* AppearanceManager.swift */,
 				20B46C9C3FFAC3DA556F0BD8 /* AuthManager.swift */,
 				274F214C2AB463915D0E7D6F /* BibleAPIService.swift */,
+				841CDC208944A69B46AD37DC /* CloudKitDeduplicator.swift */,
 				766470C6E7822E84E92DB7E4 /* NotificationService.swift */,
 				9930557F66EC67AEFDA8979F /* PremiumManager.swift */,
 				FEA9042650188AAF65D802E2 /* PreviewContainer.swift */,
 				5FCBABDA38DB3533D95D2467 /* StreakManager.swift */,
+				5397822A78200BBB2F79B66F /* VerseNotificationScheduler.swift */,
 				6739752B10AFD82DEFFA56F0 /* VerseRecommenderService.swift */,
 			);
 			path = Services;
@@ -352,6 +361,7 @@
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					B688C0B300C8B1EF44B70441 = {
+						DevelopmentTeam = 28HN686K66;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -395,6 +405,7 @@
 				10C08C86E0BAE112A7BACF4A /* AnchoredApp.swift in Sources */,
 				B3D2563856D485BDC27547F2 /* AnchoredColors.swift in Sources */,
 				78C34E7E8222411D91FE5447 /* AnchoredTypography.swift in Sources */,
+				EBA98BBD35ABDC5998634FA8 /* AppearanceManager.swift in Sources */,
 				5A83316B57EFCD2440A405F4 /* AuthManager.swift in Sources */,
 				94516A0AB5176866A90E7FB8 /* BibleAPIService.swift in Sources */,
 				6E547D7C9C478CE4FBAB4E46 /* BibleCatalog.swift in Sources */,
@@ -402,6 +413,7 @@
 				2383E29671C7E647C822CB1A /* BibleNote.swift in Sources */,
 				F7E00E8E59E95428BA6DD431 /* BiblePassageView.swift in Sources */,
 				816BD8672F6DD2A48EFC6655 /* BibleView.swift in Sources */,
+				7D3089495B39F674C7C08AA2 /* CloudKitDeduplicator.swift in Sources */,
 				1A46E7BAE9A3E80BED1AB68E /* DailyVerses.swift in Sources */,
 				EB25BBBC06F433407931589A /* FeelingMap.swift in Sources */,
 				53E4533F14DBC9C993A4BC7B /* HighlightColor.swift in Sources */,
@@ -427,6 +439,7 @@
 				1959DC648F924FA1ADBABB48 /* TopicsView.swift in Sources */,
 				FE5D940CF0EC3EDE8D4A8723 /* UserSettings.swift in Sources */,
 				DAAEEB360C8B8F4C5A18155F /* UserStreak.swift in Sources */,
+				89C28876DB8BF5F5AD51FD9B /* VerseNotificationScheduler.swift in Sources */,
 				15461AF481F5BE19082DAAEF /* VerseRecommenderService.swift in Sources */,
 				3A90212D03795866F7DB5EF0 /* VerseRecommenderSheet.swift in Sources */,
 				E023C93533453C2678475EAA /* ViewModifiers.swift in Sources */,
@@ -443,15 +456,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Anchored/Anchored.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 28HN686K66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Anchored/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Anchored;
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_UIRequiredDeviceCapabilities = arm64;
+				INFOPLIST_KEY_CFBundleDisplayName = "Anchored - Learn the Bible";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -500,7 +510,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 28HN686K66;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -562,7 +572,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 28HN686K66;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -601,15 +611,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Anchored/Anchored.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 28HN686K66;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Anchored/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Anchored;
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_UIRequiredDeviceCapabilities = arm64;
+				INFOPLIST_KEY_CFBundleDisplayName = "Anchored - Learn the Bible";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
