@@ -32,6 +32,7 @@ struct ProfileView: View {
     @EnvironmentObject private var authManager: AuthManager
     @EnvironmentObject private var premiumManager: PremiumManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppearanceManager.self) private var appearanceManager
 
     // MARK: - Live data
 
@@ -351,11 +352,17 @@ struct ProfileView: View {
                 .foregroundStyle(AnchoredColors.navy)
 
             VStack(spacing: 0) {
+                appearanceRow
+                Divider().background(AnchoredColors.border)
                 translationRow
                 Divider().background(AnchoredColors.border)
                 fontSizeRow
                 Divider().background(AnchoredColors.border)
                 reminderRow
+                if isReminderOn {
+                    Divider().background(AnchoredColors.border)
+                    reminderTimeRow
+                }
                 if notificationStatus == .denied {
                     Divider().background(AnchoredColors.border)
                     openSettingsRow
@@ -368,6 +375,22 @@ struct ProfileView: View {
                 #endif
             }
             .cardSurface(padding: 0)
+        }
+    }
+
+    private var appearanceRow: some View {
+        settingRow {
+            Label("Appearance", systemImage: "circle.lefthalf.filled")
+                .foregroundStyle(AnchoredColors.navy)
+        } trailing: {
+            @Bindable var manager = appearanceManager
+            Picker("", selection: $manager.mode) {
+                ForEach(AppearanceManager.Mode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 180)
         }
     }
 
@@ -434,6 +457,46 @@ struct ProfileView: View {
             .labelsHidden()
             .tint(AnchoredColors.amber)
         }
+    }
+
+    private var reminderTimeRow: some View {
+        settingRow {
+            Label("Reminder time", systemImage: "clock.fill")
+                .foregroundStyle(AnchoredColors.navy)
+        } trailing: {
+            DatePicker("", selection: Binding(
+                get: {
+                    let row = settingsRows.first
+                    let time = row?.dailyReminderTime ?? "08:00"
+                    let parts = time.split(separator: ":").compactMap { Int($0) }
+                    guard parts.count == 2 else { return defaultReminderDate }
+                    var comps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+                    comps.hour = parts[0]
+                    comps.minute = parts[1]
+                    return Calendar.current.date(from: comps) ?? defaultReminderDate
+                },
+                set: { newDate in
+                    let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                    let hour = comps.hour ?? 8
+                    let minute = comps.minute ?? 0
+                    let row = ensureSettingsRow()
+                    row.dailyReminderTime = String(format: "%02d:%02d", hour, minute)
+                    try? modelContext.save()
+                    Task {
+                        _ = await NotificationService.shared.scheduleDailyReminder(hour: hour, minute: minute)
+                    }
+                }
+            ), displayedComponents: .hourAndMinute)
+            .labelsHidden()
+            .tint(AnchoredColors.amber)
+        }
+    }
+
+    private var defaultReminderDate: Date {
+        var comps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        comps.hour = 8
+        comps.minute = 0
+        return Calendar.current.date(from: comps) ?? Date()
     }
 
     private var openSettingsRow: some View {
