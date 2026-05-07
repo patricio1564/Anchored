@@ -52,6 +52,7 @@ struct AnchoredApp: App {
 
     @StateObject private var authManager = AuthManager()
     @StateObject private var premiumManager = PremiumManager()
+    @State private var appearanceManager = AppearanceManager()
 
     // MARK: - Scene
 
@@ -60,6 +61,8 @@ struct AnchoredApp: App {
             RootView()
                 .environmentObject(authManager)
                 .environmentObject(premiumManager)
+                .environment(appearanceManager)
+                .preferredColorScheme(appearanceManager.colorScheme)
                 .tint(AnchoredColors.amber)
         }
         .modelContainer(modelContainer)
