@@ -21,9 +21,9 @@
 //   }
 //
 // Translations the app exposes:
-//   • WEB — World English Bible (public domain, default, FREE)
+//   • WEB — World English Bible (public domain, premium gate)
 //   • KJV — King James Version (public domain, premium gate for parity)
-//   • ASV — American Standard Version (public domain, premium)
+//   • ASV — American Standard Version (public domain, default, FREE)
 //   • BBE — Bible in Basic English (public domain, premium)
 //   • Darby — Darby Translation (public domain, premium)
 // ────────────────────────────────────────────────────────────────────────────
@@ -53,8 +53,8 @@ enum BibleTranslation: String, CaseIterable, Identifiable, Sendable {
     /// Short label (3-4 chars) for compact UI.
     var shortLabel: String { rawValue.uppercased() }
 
-    /// MVP gating: WEB is free, everything else is premium.
-    var isFree: Bool { self == .web }
+    /// ASV is the free default; all others are premium.
+    var isFree: Bool { self == .asv }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

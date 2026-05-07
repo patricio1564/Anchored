@@ -37,8 +37,8 @@ enum FontSizeScale: String, Codable, CaseIterable {
 @Model
 final class UserSettings {
     /// Translation identifier — maps to bible-api.com query param.
-    /// "web" (World English Bible) is the free default; ESV/KJV/ASV/BBE are
-    /// gated behind premium.
+    /// "asv" (American Standard Version) is the free default; WEB/KJV/BBE/Darby
+    /// are gated behind premium.
     var preferredTranslation: String
 
     /// Font size scale for reading.
@@ -65,7 +65,7 @@ final class UserSettings {
     var bibleExperience: String?
 
     init(
-        preferredTranslation: String = "web",
+        preferredTranslation: String = "asv",
         fontSize: FontSizeScale = .medium,
         notificationsEnabled: Bool = true,
         dailyReminderTime: String? = "08:00",
