@@ -61,7 +61,6 @@ struct LessonView: View {
     /// Generated comprehension questions per chapter index.
     @State private var comprehensionQuestions: [Int: [QuizQuestion]] = [:]
     @State private var comprehensionIndex = 0
-    @State private var comprehensionAnswered = false
 
     // MARK: - Flow state
 
@@ -284,7 +283,6 @@ struct LessonView: View {
         if let questions = comprehensionQuestions[chapterIndex], !questions.isEmpty {
             withAnimation(.easeInOut(duration: 0.25)) {
                 comprehensionIndex = 0
-                comprehensionAnswered = false
                 phase = .chapterQuiz(chapterIndex: chapterIndex)
             }
         } else {
@@ -336,14 +334,12 @@ struct LessonView: View {
                     shuffleSeed: lesson.id.hashValue &+ chapterIndex &* 1000 &+ comprehensionIndex,
                     onAnswer: { _, _ in
                         // No XP for comprehension checks. No combo tracking.
-                        comprehensionAnswered = true
                     },
                     onContinue: {
                         let questions = comprehensionQuestions[chapterIndex] ?? []
                         if comprehensionIndex + 1 < questions.count {
                             withAnimation(.easeInOut(duration: 0.25)) {
                                 comprehensionIndex += 1
-                                comprehensionAnswered = false
                             }
                         } else {
                             advanceFromChapterQuiz(chapterIndex: chapterIndex)
