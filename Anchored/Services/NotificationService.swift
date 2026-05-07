@@ -7,13 +7,11 @@
 //
 // ─────────────────────── PERMISSION PHILOSOPHY ─────────────────────────────
 //
-// We NEVER prompt for notification permission at launch. First launch
-// is a moment of curiosity — asking for a scary OS-level permission
-// immediately breaks the spell. Instead, we prompt contextually:
+// We prompt for notification permission contextually, never with a
+// raw system dialog at launch. Instead we ask at natural moments:
 //
+//   • During onboarding (page 3) when the user toggles "Enable daily reminder".
 //   • After the user manually enables "Daily reminder" in Profile.
-//   • After the user completes their first lesson and sees the streak
-//     celebration, if they tap "Remind me to come back tomorrow".
 //
 // If the user has previously denied permission, we detect it and route
 // them to the system settings deep-link instead of showing a useless
@@ -85,8 +83,8 @@ final class NotificationService {
         center.removePendingNotificationRequests(withIdentifiers: [dailyReminderID])
 
         let content = UNMutableNotificationContent()
-        content.title = "Today's Verse"
-        content.body = "Take a quiet moment. Your verse is waiting."
+        content.title = "Time to grow in the Word 📖"
+        content.body = "Your daily verse and lessons are waiting for you."
         content.sound = .default
 
         var components = DateComponents()

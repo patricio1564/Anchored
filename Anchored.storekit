@@ -1,0 +1,80 @@
+{
+  "_defaultStorefront" : "USA",
+  "_defaultLocale" : "en-US",
+  "_storeKitVersion" : "2",
+  "identifier" : "878163f1-57bc-4a0a-96bf-500f16276763",
+  "nonConsumableIAPs" : [],
+  "consumableIAPs" : [],
+  "nonRenewingSubscriptions" : [],
+  "subscriptionGroups" : [
+    {
+      "id" : "6519a66a-4b16-43b8-a364-05c835544d11",
+      "localizations" : [],
+      "name" : "Premium",
+      "subscriptions" : [
+        {
+          "adHocOfferCodes" : [],
+          "displayName" : "Weekly Premium",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "2740d1da-e7ef-4dc1-974e-2b22cfcb83e5",
+          "introductoryOffer" : {
+            "displayName" : "3-Day Free Trial",
+            "duration" : "P3D",
+            "introductoryOfferIdentifier" : null,
+            "numberOfPeriods" : 1,
+            "offerMode" : "freeTrial"
+          },
+          "localizations" : [
+            {
+              "description" : "Full access to all Anchored premium features, billed weekly.",
+              "displayName" : "Weekly Premium",
+              "locale" : "en-US"
+            }
+          ],
+          "productID" : "com.anchored.app.premium.weekly",
+          "recurringSubscriptionPeriod" : "P1W",
+          "referenceName" : "Weekly Premium",
+          "subscriptionGroupID" : "6519a66a-4b16-43b8-a364-05c835544d11",
+          "type" : "RecurringSubscription",
+          "subscriptionPricePoint" : {
+            "customerPrice" : "1.00",
+            "priceTierName" : "Tier 1",
+            "storefront" : "USA"
+          }
+        },
+        {
+          "adHocOfferCodes" : [],
+          "displayName" : "Yearly Premium",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "95e19d48-ae85-41f1-99b8-08cf089471c2",
+          "introductoryOffer" : {
+            "displayName" : "3-Day Free Trial",
+            "duration" : "P3D",
+            "introductoryOfferIdentifier" : null,
+            "numberOfPeriods" : 1,
+            "offerMode" : "freeTrial"
+          },
+          "localizations" : [
+            {
+              "description" : "Full access to all Anchored premium features, billed yearly — best value.",
+              "displayName" : "Yearly Premium",
+              "locale" : "en-US"
+            }
+          ],
+          "productID" : "com.anchored.app.premium.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Yearly Premium",
+          "subscriptionGroupID" : "6519a66a-4b16-43b8-a364-05c835544d11",
+          "type" : "RecurringSubscription",
+          "subscriptionPricePoint" : {
+            "customerPrice" : "29.99",
+            "priceTierName" : "Tier 30",
+            "storefront" : "USA"
+          }
+        }
+      ]
+    }
+  ]
+}
