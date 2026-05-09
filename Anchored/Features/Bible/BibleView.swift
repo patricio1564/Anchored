@@ -1,13 +1,3 @@
-//
-//  BibleView.swift
-//  Anchored
-//
-//  Root of the Bible tab. Shows the full book list grouped by testament.
-//  If the user has read before, a "Continue reading" card appears at top.
-//  The search bar offers predictive suggestions as the user types.
-//  The sparkles button opens the Verse Recommender sheet.
-//
-
 import SwiftUI
 
 struct BibleView: View {
@@ -65,13 +55,9 @@ struct BibleView: View {
     private var suggestions: [SearchSuggestion] {
         let q = searchInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard q.count >= 2 else { return [] }
-
-        // If it fully parses as a reference, offer it directly
         if let ref = BibleCatalog.parseRef(from: q) {
             return [.chapter(ref)]
         }
-
-        // Otherwise find books whose names start with the query (case-insensitive)
         let lower = q.lowercased()
         let matched = BibleCatalog.all.filter { $0.name.lowercased().hasPrefix(lower) }
         return matched.map { .book($0) }
@@ -80,69 +66,82 @@ struct BibleView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // ── Continue reading ────────────────────────────────────
+                // Header
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("The")
+                            .font(.custom("Newsreader", size: 13).weight(.regular).italic())
+                            .foregroundStyle(AnchoredColors.inkSoft)
+                        Text("Bible")
+                            .font(.custom("Newsreader", size: 36).weight(.regular))
+                            .tracking(-0.72)
+                            .foregroundStyle(AnchoredColors.ink)
+                    }
+                    Spacer()
+                    Button {
+                        showRecommender = true
+                    } label: {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [AnchoredColors.lilac, AnchoredColors.blue],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 18))
+                                .foregroundStyle(.white)
+                        }
+                        .frame(width: 42, height: 42)
+                        .shadow(color: AnchoredColors.lilac.opacity(0.35), radius: 9, x: 0, y: 8)
+                    }
+                    .accessibilityLabel("Find verses for how you feel")
+                }
+                .padding(.bottom, 18)
+
+                // Search bar
+                searchBar
+                    .padding(.bottom, 18)
+
+                if !suggestions.isEmpty {
+                    suggestionsDropdown
+                        .padding(.bottom, 18)
+                }
+
+                // Continue reading
                 if let lastRef {
                     continueReadingCard(lastRef)
-                        .screenPadding()
-                        .padding(.top, 16)
-                        .padding(.bottom, 8)
+                        .padding(.bottom, 18)
                 }
 
-                // ── Search + suggestions ────────────────────────────────
-                VStack(alignment: .leading, spacing: 0) {
-                    searchBar
-                    if !suggestions.isEmpty {
-                        suggestionsDropdown
-                    }
-                }
-                .screenPadding()
-                .padding(.top, lastRef == nil ? 16 : 0)
-                .padding(.bottom, 24)
-
-                // ── Old Testament ───────────────────────────────────────
+                // Old Testament
                 bookSection(title: "Old Testament", books: BibleCatalog.oldTestament)
 
-                // ── New Testament ───────────────────────────────────────
+                // New Testament
                 bookSection(title: "New Testament", books: BibleCatalog.newTestament)
 
                 Spacer(minLength: 40)
             }
+            .padding(.top, 58)
+            .screenPadding()
         }
-        .background(AnchoredColors.parchment.ignoresSafeArea())
-        .navigationTitle("Bible")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showRecommender = true
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(AnchoredColors.amber)
-                            .frame(width: 34, height: 34)
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.white)
-                    }
-                }
-                .accessibilityLabel("Find verses for how you feel")
-            }
-        }
-        // Book → chapter grid
+        .appBackground()
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .navigationDestination(for: BibleBook.self) { book in
             BibleChapterListView(book: book)
         }
-        // Chapter tap or search submit → passage reader
         .navigationDestination(for: BiblePassageRef.self) { ref in
             BiblePassageView(ref: ref)
         }
-        // Suggestion book push
         .navigationDestination(isPresented: $isPushingBook) {
             if let book = suggestedBook {
                 BibleChapterListView(book: book)
             }
         }
-        // Search bar programmatic push
         .navigationDestination(isPresented: $isPushingSearch) {
             if let ref = searchRef {
                 BiblePassageView(ref: ref)
@@ -162,31 +161,29 @@ struct BibleView: View {
         NavigationLink(value: ref) {
             HStack(spacing: 14) {
                 ZStack {
-                    Circle()
-                        .fill(AnchoredColors.amber.opacity(0.14))
-                        .frame(width: 44, height: 44)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AnchoredColors.coral.opacity(0.13))
+                        .frame(width: 32, height: 32)
                     Image(systemName: "book.fill")
-                        .foregroundStyle(AnchoredColors.amber)
-                        .font(.system(size: 18))
+                        .font(.system(size: 14))
+                        .foregroundStyle(AnchoredColors.coral)
                 }
-
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Continue reading")
-                        .anchoredStyle(.caption)
-                        .foregroundStyle(AnchoredColors.muted)
+                        .font(.custom("Outfit", size: 11).weight(.semibold))
+                        .tracking(0.44)
                         .textCase(.uppercase)
+                        .foregroundStyle(AnchoredColors.coral)
                     Text(ref.apiReference)
-                        .anchoredStyle(.bodyMd)
-                        .foregroundStyle(AnchoredColors.navy)
+                        .font(.custom("Newsreader", size: 16).weight(.medium))
+                        .foregroundStyle(AnchoredColors.ink)
                 }
-
                 Spacer()
-
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(AnchoredColors.muted)
+                    .font(.system(size: 13))
+                    .foregroundStyle(AnchoredColors.inkMute)
             }
-            .cardSurface(padding: 14)
+            .glassCard(padding: 14, cornerRadius: 18)
         }
         .buttonStyle(.plain)
     }
@@ -196,34 +193,40 @@ struct BibleView: View {
     private var searchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(AnchoredColors.muted)
-            TextField("e.g. John 3 or Psalms 23:1", text: $searchInput)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-                .onSubmit {
-                    if let ref = BibleCatalog.parseRef(from: searchInput) {
-                        searchRef = ref
-                        isPushingSearch = true
-                        searchInput = ""
-                    }
+                .font(.system(size: 16))
+                .foregroundStyle(AnchoredColors.inkMute)
+            TextField("", text: $searchInput, prompt: Text("e.g. John 3 or Psalm 23:1")
+                .font(.custom("Newsreader", size: 14).weight(.regular).italic())
+                .foregroundColor(AnchoredColors.inkMute)
+            )
+            .font(.custom("Newsreader", size: 14).weight(.regular))
+            .textInputAutocapitalization(.words)
+            .autocorrectionDisabled()
+            .submitLabel(.search)
+            .onSubmit {
+                if let ref = BibleCatalog.parseRef(from: searchInput) {
+                    searchRef = ref
+                    isPushingSearch = true
+                    searchInput = ""
                 }
+            }
             if !searchInput.isEmpty {
                 Button {
                     searchInput = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(AnchoredColors.muted)
+                        .foregroundStyle(AnchoredColors.inkMute)
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(AnchoredColors.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(AnchoredColors.glass)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(AnchoredColors.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AnchoredColors.line, lineWidth: 1)
         )
     }
 
@@ -238,20 +241,20 @@ struct BibleView: View {
                     HStack(spacing: 14) {
                         Image(systemName: suggestion.icon)
                             .font(.system(size: 14))
-                            .foregroundStyle(AnchoredColors.amber)
+                            .foregroundStyle(AnchoredColors.coral)
                             .frame(width: 20)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(suggestion.label)
-                                .anchoredStyle(.bodyMd)
-                                .foregroundStyle(AnchoredColors.navy)
+                                .font(.custom("Outfit", size: 14.5).weight(.semibold))
+                                .foregroundStyle(AnchoredColors.ink)
                             Text(suggestion.detail)
-                                .anchoredStyle(.caption)
-                                .foregroundStyle(AnchoredColors.muted)
+                                .font(.custom("Outfit", size: 12).weight(.medium))
+                                .foregroundStyle(AnchoredColors.inkSoft)
                         }
                         Spacer()
                         Image(systemName: "arrow.up.left")
                             .font(.system(size: 11))
-                            .foregroundStyle(AnchoredColors.muted)
+                            .foregroundStyle(AnchoredColors.inkMute)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
@@ -263,13 +266,8 @@ struct BibleView: View {
                 }
             }
         }
-        .background(AnchoredColors.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(AnchoredColors.border, lineWidth: 1)
-        )
-        .padding(.top, 4)
+        .glassCard(padding: 0, cornerRadius: 16)
+        .padding(.top, -14)
     }
 
     private func applySuggestion(_ suggestion: SearchSuggestion) {
@@ -288,12 +286,11 @@ struct BibleView: View {
 
     private func bookSection(title: String, books: [BibleBook]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .anchoredStyle(.label)
-                .foregroundStyle(AnchoredColors.muted)
-                .textCase(.uppercase)
-                .screenPadding()
-                .padding(.bottom, 8)
+            Text(title.uppercased())
+                .font(.custom("Outfit", size: 11).weight(.semibold))
+                .tracking(0.44)
+                .foregroundStyle(AnchoredColors.coral)
+                .padding(.bottom, 10)
 
             VStack(spacing: 0) {
                 ForEach(Array(books.enumerated()), id: \.element.id) { index, book in
@@ -303,13 +300,13 @@ struct BibleView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .background(AnchoredColors.card)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(AnchoredColors.glass)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(AnchoredColors.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(AnchoredColors.line, lineWidth: 1)
             )
-            .screenPadding()
             .padding(.bottom, 24)
         }
     }
@@ -318,23 +315,26 @@ struct BibleView: View {
         VStack(spacing: 0) {
             HStack {
                 Text(book.name)
-                    .anchoredStyle(.body)
-                    .foregroundStyle(AnchoredColors.navy)
+                    .font(.custom("Newsreader", size: 18).weight(.medium))
+                    .foregroundStyle(AnchoredColors.ink)
                 Spacer()
-                Text("\(book.chapters) ch")
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.muted)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(AnchoredColors.muted)
-                    .padding(.leading, 4)
+                HStack(spacing: 8) {
+                    Text("\(book.chapters) ch")
+                        .font(.custom("Outfit", size: 12).weight(.medium))
+                        .monospacedDigit()
+                        .foregroundStyle(AnchoredColors.inkSoft)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13))
+                        .foregroundStyle(AnchoredColors.inkMute)
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 13)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
 
             if !isLast {
                 Divider()
-                    .padding(.leading, 16)
+                    .overlay(AnchoredColors.lineSoft)
+                    .padding(.leading, 18)
             }
         }
     }
