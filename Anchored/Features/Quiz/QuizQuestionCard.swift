@@ -1,52 +1,38 @@
-// ────────────────────────────────────────────────────────────────────────────
-// QuizQuestionCard.swift
-//
-// A single multiple-choice question with color-coded feedback and an
-// explanation panel shown after the user answers.
-//
-// Usage:
-//     QuizQuestionCard(
-//         question: lesson.questions[idx],
-//         questionIndex: idx,
-//         totalQuestions: lesson.questions.count,
-//         shuffleSeed: lesson.id.hashValue &+ idx,  // stable during session
-//         onAnswer: { wasCorrect, userAnswerText in ... },
-//         onContinue: { ... }
-//     )
-//
-// Why the card owns its own answered-state: it keeps the parent (LessonView)
-// from having to reset a bunch of flags between questions. When the parent
-// swaps in a new question by id, a new Card is created fresh.
-// ────────────────────────────────────────────────────────────────────────────
-
 import SwiftUI
 
 struct QuizQuestionCard: View {
     let question: QuizQuestion
     let questionIndex: Int
     let totalQuestions: Int
-    /// Stable seed so the shuffle doesn't change between body re-evaluations.
-    /// Pass something derived from (lesson.id, questionIndex).
     let shuffleSeed: Int
+    let topicTitle: String?
 
-    /// Called once when the user picks an option. `wasCorrect` tells the
-    /// parent whether to bump the score and combo; `userAnswer` is the
-    /// option text the user picked (useful for review screens).
     let onAnswer: (_ wasCorrect: Bool, _ userAnswer: String) -> Void
-
-    /// Called when the user taps Continue after seeing the explanation.
     let onContinue: () -> Void
 
-    // MARK: - Local state
+    init(
+        question: QuizQuestion,
+        questionIndex: Int,
+        totalQuestions: Int,
+        shuffleSeed: Int,
+        topicTitle: String? = nil,
+        onAnswer: @escaping (_ wasCorrect: Bool, _ userAnswer: String) -> Void,
+        onContinue: @escaping () -> Void
+    ) {
+        self.question = question
+        self.questionIndex = questionIndex
+        self.totalQuestions = totalQuestions
+        self.shuffleSeed = shuffleSeed
+        self.topicTitle = topicTitle
+        self.onAnswer = onAnswer
+        self.onContinue = onContinue
+    }
 
     @State private var selectedDisplayIndex: Int? = nil
     @State private var hasAnswered = false
 
-    // MARK: - Shuffle (computed once per init via the seed)
+    private let letters = ["A", "B", "C", "D", "E", "F"]
 
-    /// The options in display order, and the display-order index of the
-    /// correct option. Computed from the seed so it's stable across
-    /// SwiftUI re-renders in the same session but varies by question.
     private var shuffled: (options: [String], correctDisplayIndex: Int) {
         var rng = SeededGenerator(seed: UInt64(bitPattern: Int64(shuffleSeed)))
         let indexed = question.options.enumerated().map { ($0.offset, $0.element) }
@@ -55,185 +41,179 @@ struct QuizQuestionCard: View {
         return (shuffled.map(\.1), correct)
     }
 
-    // MARK: - Body
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            progressHeader
-            prompt
-            options
-            if hasAnswered {
-                explanationPanel
-                continueButton
-            }
-        }
-    }
+        VStack(alignment: .leading, spacing: 0) {
+            // Question label
+            Text("QUESTION \(questionIndex + 1) OF \(totalQuestions)")
+                .font(.custom("Outfit", size: 11).weight(.semibold))
+                .tracking(0.44)
+                .foregroundStyle(AnchoredColors.coral)
+            + Text(topicTitle.map { " \u{00B7} \($0.uppercased())" } ?? "")
+                .font(.custom("Outfit", size: 11).weight(.semibold))
+                .tracking(0.44)
+                .foregroundStyle(AnchoredColors.coral)
 
-    // MARK: - Subviews
+            // Prompt
+            Text(question.prompt)
+                .font(.custom("Newsreader", size: 28).weight(.regular))
+                .tracking(-0.28)
+                .lineSpacing(2)
+                .foregroundStyle(AnchoredColors.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 10)
+                .padding(.bottom, 24)
 
-    private var progressHeader: some View {
-        HStack {
-            Text("Question \(questionIndex + 1) of \(totalQuestions)")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(AnchoredColors.muted)
-                .textCase(.uppercase)
-
-            Spacer()
-
-            // Progress dots — filled for completed, half for current, dim for future.
-            HStack(spacing: 4) {
-                ForEach(0..<totalQuestions, id: \.self) { i in
-                    Capsule()
-                        .fill(dotColor(for: i))
-                        .frame(width: 18, height: 4)
+            // Options
+            VStack(spacing: 10) {
+                ForEach(Array(shuffled.options.enumerated()), id: \.offset) { i, text in
+                    optionButton(text: text, displayIndex: i)
                 }
             }
-        }
-    }
 
-    private var prompt: some View {
-        Text(question.prompt)
-            .anchoredStyle(.h3)
-            .foregroundStyle(AnchoredColors.navy)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var options: some View {
-        VStack(spacing: 10) {
-            ForEach(Array(shuffled.options.enumerated()), id: \.offset) { i, text in
-                optionButton(text: text, displayIndex: i)
+            if hasAnswered {
+                explanationPanel
+                    .padding(.top, 16)
             }
         }
     }
 
+    // MARK: - Option button
+
     private func optionButton(text: String, displayIndex: Int) -> some View {
-        Button {
+        let isSelected = selectedDisplayIndex == displayIndex
+        let isCorrect = displayIndex == shuffled.correctDisplayIndex
+
+        return Button {
             guard !hasAnswered else { return }
             selectedDisplayIndex = displayIndex
             hasAnswered = true
             let wasCorrect = (displayIndex == shuffled.correctDisplayIndex)
             onAnswer(wasCorrect, text)
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 14) {
+                // Letter badge
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(letterBadgeFill(selected: isSelected && !hasAnswered, correct: isCorrect && hasAnswered, wrong: isSelected && hasAnswered && !isCorrect))
+                        .frame(width: 30, height: 30)
+                    Text(displayIndex < letters.count ? letters[displayIndex] : "")
+                        .font(.custom("Newsreader", size: 16).weight(.semibold))
+                        .foregroundStyle(letterTextColor(selected: isSelected, correct: isCorrect && hasAnswered, wrong: isSelected && hasAnswered && !isCorrect))
+                }
+
                 Text(text)
-                    .font(.system(.body, weight: .medium))
-                    .foregroundStyle(optionTextColor(for: displayIndex))
+                    .font(.custom("Newsreader", size: 17).weight(.medium))
+                    .foregroundStyle(optionTextColor(selected: isSelected && !hasAnswered, correct: isCorrect && hasAnswered, wrong: isSelected && hasAnswered && !isCorrect))
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 if hasAnswered {
-                    Image(systemName: optionTrailingIcon(for: displayIndex))
-                        .foregroundStyle(optionIconColor(for: displayIndex))
-                        .font(.system(size: 18, weight: .semibold))
-                        .transition(.scale.combined(with: .opacity))
+                    if isCorrect {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(AnchoredColors.success)
+                            .transition(.scale.combined(with: .opacity))
+                    } else if isSelected {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(AnchoredColors.error)
+                            .transition(.scale.combined(with: .opacity))
+                    }
                 }
             }
-            .padding(14)
-            .background(optionBackground(for: displayIndex), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(18)
+            .background(optionBg(selected: isSelected && !hasAnswered, correct: isCorrect && hasAnswered, wrong: isSelected && hasAnswered && !isCorrect))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(optionBorder(for: displayIndex), lineWidth: 1.5)
+                Group {
+                    if !(isSelected && !hasAnswered) {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(optionBorder(correct: isCorrect && hasAnswered, wrong: isSelected && hasAnswered && !isCorrect), lineWidth: 1)
+                    }
+                }
+            )
+            .shadow(
+                color: (isSelected && !hasAnswered) ? AnchoredColors.coral.opacity(0.3) : .clear,
+                radius: 14, x: 0, y: 12
             )
         }
         .buttonStyle(.plain)
         .disabled(hasAnswered)
-        .animation(.easeInOut(duration: 0.2), value: hasAnswered)
+        .animation(.easeOut(duration: 0.18), value: hasAnswered)
     }
+
+    // MARK: - Explanation
 
     private var explanationPanel: some View {
         let correct = selectedDisplayIndex == shuffled.correctDisplayIndex
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: correct ? "checkmark.circle.fill" : "lightbulb.fill")
-                    .foregroundStyle(correct ? .green : AnchoredColors.amber)
-                Text(correct ? "Well done" : "Here's the context")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(correct ? .green : AnchoredColors.amber)
+                    .foregroundStyle(correct ? AnchoredColors.success : AnchoredColors.gold)
+                Text(correct ? "Well done" : "Here\u{2019}s the context")
+                    .font(.custom("Outfit", size: 13).weight(.semibold))
+                    .foregroundStyle(correct ? AnchoredColors.success : AnchoredColors.gold)
             }
             Text(question.explanation)
-                .font(.callout)
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Outfit", size: 13).weight(.medium))
+                .lineSpacing(3)
+                .foregroundStyle(AnchoredColors.ink)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(14)
+        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            (correct ? Color.green : AnchoredColors.amber).opacity(0.08),
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            (correct ? AnchoredColors.success : AnchoredColors.gold).opacity(0.08)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .transition(.opacity.combined(with: .move(edge: .top)))
-    }
-
-    private var continueButton: some View {
-        Button {
-            onContinue()
-        } label: {
-            HStack(spacing: 8) {
-                Text(questionIndex + 1 == totalQuestions ? "See Results" : "Continue")
-                    .font(.system(.body, weight: .semibold))
-                Image(systemName: "arrow.right")
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(AnchoredColors.amber, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .foregroundStyle(.white)
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Styling helpers
 
-    private func dotColor(for index: Int) -> Color {
-        if index < questionIndex { return AnchoredColors.amber }
-        if index == questionIndex { return AnchoredColors.amber.opacity(0.5) }
-        return AnchoredColors.muted.opacity(0.3)
-    }
-
-    private func optionBackground(for index: Int) -> Color {
-        guard hasAnswered else { return AnchoredColors.parchment }
-        if index == shuffled.correctDisplayIndex {
-            return Color.green.opacity(0.12)
+    @ViewBuilder
+    private func optionBg(selected: Bool, correct: Bool, wrong: Bool) -> some View {
+        if selected {
+            AnchoredColors.gradientPrimary
+        } else if correct {
+            AnchoredColors.success.opacity(0.12)
+        } else if wrong {
+            AnchoredColors.error.opacity(0.10)
+        } else {
+            AnchoredColors.glass
+                .background(.ultraThinMaterial)
         }
-        if index == selectedDisplayIndex {
-            return Color.red.opacity(0.10)
-        }
-        return AnchoredColors.parchment.opacity(0.6)
     }
 
-    private func optionBorder(for index: Int) -> Color {
-        guard hasAnswered else { return AnchoredColors.muted.opacity(0.25) }
-        if index == shuffled.correctDisplayIndex { return .green }
-        if index == selectedDisplayIndex { return .red.opacity(0.7) }
-        return AnchoredColors.muted.opacity(0.15)
+    private func optionBorder(correct: Bool, wrong: Bool) -> Color {
+        if correct { return AnchoredColors.success }
+        if wrong { return AnchoredColors.error.opacity(0.7) }
+        return AnchoredColors.line
     }
 
-    private func optionTextColor(for index: Int) -> Color {
-        guard hasAnswered else { return AnchoredColors.navy }
-        if index == shuffled.correctDisplayIndex { return .green }
-        if index == selectedDisplayIndex { return .red }
-        return AnchoredColors.navy.opacity(0.5)
+    private func optionTextColor(selected: Bool, correct: Bool, wrong: Bool) -> Color {
+        if selected { return .white }
+        if correct { return AnchoredColors.success }
+        if wrong { return AnchoredColors.error }
+        return AnchoredColors.ink
     }
 
-    private func optionTrailingIcon(for index: Int) -> String {
-        if index == shuffled.correctDisplayIndex { return "checkmark.circle.fill" }
-        if index == selectedDisplayIndex { return "xmark.circle.fill" }
-        return ""
+    private func letterBadgeFill(selected: Bool, correct: Bool, wrong: Bool) -> Color {
+        if selected { return Color.white.opacity(0.25) }
+        if correct { return AnchoredColors.success.opacity(0.15) }
+        if wrong { return AnchoredColors.error.opacity(0.15) }
+        return AnchoredColors.coral.opacity(0.08)
     }
 
-    private func optionIconColor(for index: Int) -> Color {
-        if index == shuffled.correctDisplayIndex { return .green }
-        if index == selectedDisplayIndex { return .red }
-        return .clear
+    private func letterTextColor(selected: Bool, correct: Bool, wrong: Bool) -> Color {
+        if selected { return .white }
+        if correct { return AnchoredColors.success }
+        if wrong { return AnchoredColors.error }
+        return AnchoredColors.coral
     }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
 // MARK: - SeededGenerator
-//
-// Tiny deterministic RNG so `[Array].shuffled(using:)` produces the same
-// order every time for a given seed. Splitmix64 — well-known, one-liner,
-// good enough for shuffling 4 options.
-// ────────────────────────────────────────────────────────────────────────────
 
 struct SeededGenerator: RandomNumberGenerator {
     private var state: UInt64
@@ -247,25 +227,24 @@ struct SeededGenerator: RandomNumberGenerator {
     }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
 // MARK: - Preview
-// ────────────────────────────────────────────────────────────────────────────
 
 #Preview("Unanswered") {
     let sample = QuizQuestion(
         prompt: "On which day did God create the sun, moon, and stars?",
         options: ["First day", "Third day", "Fourth day", "Sixth day"],
         correctIndex: 2,
-        explanation: "Genesis 1:14–19 describes the creation of the sun, moon, and stars on the fourth day to mark seasons, days, and years."
+        explanation: "Genesis 1:14\u{2013}19 describes the creation of the sun, moon, and stars on the fourth day to mark seasons, days, and years."
     )
     QuizQuestionCard(
         question: sample,
         questionIndex: 0,
         totalQuestions: 3,
         shuffleSeed: 42,
+        topicTitle: "The Exodus",
         onAnswer: { _, _ in },
         onContinue: {}
     )
-    .padding()
-    .background(AnchoredColors.parchment)
+    .padding(22)
+    .appBackground()
 }
