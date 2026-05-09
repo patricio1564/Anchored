@@ -16,12 +16,14 @@
 		234111C9CE4CCCE15FC999C7 /* TopicCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F8368DDDE8AC6CB57B4FA26 /* TopicCatalog.swift */; };
 		2383E29671C7E647C822CB1A /* BibleNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D4CC7F6C5322CCF0ADF1FC0 /* BibleNote.swift */; };
 		2387EBEA68C850192AEAB4B1 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97959C5345BCADCB111AC3E8 /* OnboardingView.swift */; };
+		24534137222D973B1947D669 /* ScriptureReferenceParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = D17B2F981BF8B13A2309334F /* ScriptureReferenceParser.swift */; };
 		2841FA6FF9DE8DE1D43ADE1B /* TopicsCatalog+Generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 464B757DD1CDA9DD59DDDC86 /* TopicsCatalog+Generated.swift */; };
 		342CD7D4E8590EBF1A7523E0 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E26343E9D5FE29F844365C /* RootView.swift */; };
 		3A90212D03795866F7DB5EF0 /* VerseRecommenderSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11600209BB48BB5A5908B1A /* VerseRecommenderSheet.swift */; };
 		439E928ADA8C92D3F5A0D300 /* TopicDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC5E75C95B74C4EED0F6399 /* TopicDetailView.swift */; };
 		53E4533F14DBC9C993A4BC7B /* HighlightColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE13A6A074FC3A8D33460AEC /* HighlightColor.swift */; };
 		5736123601750868398D9CEE /* BibleChapterListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3144D570EE845C027DD64B3 /* BibleChapterListView.swift */; };
+		5A1B75936A1C57FAB903EA3B /* ChapterQuizGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BCB086B30CD815EA7E9A786 /* ChapterQuizGenerator.swift */; };
 		5A83316B57EFCD2440A405F4 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20B46C9C3FFAC3DA556F0BD8 /* AuthManager.swift */; };
 		5C8426DF496B302B1AC8D61E /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3B8B1C8F7DEA3E6F6425A6 /* HomeView.swift */; };
 		69E56CBD3A200AC478890ECB /* Prayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 956F68618DF25CE46026DC1E /* Prayer.swift */; };
@@ -71,6 +73,7 @@
 		744C3646B6974E809595D202 /* BiblePassageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiblePassageView.swift; sourceTree = "<group>"; };
 		766470C6E7822E84E92DB7E4 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		7A6AFC7F615D6211806D4387 /* JournalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalView.swift; sourceTree = "<group>"; };
+		7BCB086B30CD815EA7E9A786 /* ChapterQuizGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChapterQuizGenerator.swift; sourceTree = "<group>"; };
 		7D3B8B1C8F7DEA3E6F6425A6 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		7D4CC7F6C5322CCF0ADF1FC0 /* BibleNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleNote.swift; sourceTree = "<group>"; };
 		8020D5C5C954A50E87DE651C /* Achievements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Achievements.swift; sourceTree = "<group>"; };
@@ -87,6 +90,7 @@
 		B7DCB3BB98AA83469515778B /* Anchored.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Anchored.entitlements; sourceTree = "<group>"; };
 		C1451F014A8ED741302C7CB6 /* AnchoredApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnchoredApp.swift; sourceTree = "<group>"; };
 		CE64C5E095D883D04B7657BA /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		D17B2F981BF8B13A2309334F /* ScriptureReferenceParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureReferenceParser.swift; sourceTree = "<group>"; };
 		DBC5E75C95B74C4EED0F6399 /* TopicDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicDetailView.swift; sourceTree = "<group>"; };
 		E3144D570EE845C027DD64B3 /* BibleChapterListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BibleChapterListView.swift; sourceTree = "<group>"; };
 		EE13A6A074FC3A8D33460AEC /* HighlightColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlightColor.swift; sourceTree = "<group>"; };
@@ -248,9 +252,11 @@
 			children = (
 				20B46C9C3FFAC3DA556F0BD8 /* AuthManager.swift */,
 				274F214C2AB463915D0E7D6F /* BibleAPIService.swift */,
+				7BCB086B30CD815EA7E9A786 /* ChapterQuizGenerator.swift */,
 				766470C6E7822E84E92DB7E4 /* NotificationService.swift */,
 				9930557F66EC67AEFDA8979F /* PremiumManager.swift */,
 				FEA9042650188AAF65D802E2 /* PreviewContainer.swift */,
+				D17B2F981BF8B13A2309334F /* ScriptureReferenceParser.swift */,
 				5FCBABDA38DB3533D95D2467 /* StreakManager.swift */,
 				6739752B10AFD82DEFFA56F0 /* VerseRecommenderService.swift */,
 			);
@@ -371,6 +377,7 @@
 				2383E29671C7E647C822CB1A /* BibleNote.swift in Sources */,
 				F7E00E8E59E95428BA6DD431 /* BiblePassageView.swift in Sources */,
 				816BD8672F6DD2A48EFC6655 /* BibleView.swift in Sources */,
+				5A1B75936A1C57FAB903EA3B /* ChapterQuizGenerator.swift in Sources */,
 				1A46E7BAE9A3E80BED1AB68E /* DailyVerses.swift in Sources */,
 				EB25BBBC06F433407931589A /* FeelingMap.swift in Sources */,
 				53E4533F14DBC9C993A4BC7B /* HighlightColor.swift in Sources */,
@@ -389,6 +396,7 @@
 				AA59020373DAF4E4D0D29436 /* QuizQuestionCard.swift in Sources */,
 				342CD7D4E8590EBF1A7523E0 /* RootView.swift in Sources */,
 				D299BCAD1830CEC880288810 /* SavedVerse.swift in Sources */,
+				24534137222D973B1947D669 /* ScriptureReferenceParser.swift in Sources */,
 				ECE55D23B069C5477569B8BE /* StreakManager.swift in Sources */,
 				234111C9CE4CCCE15FC999C7 /* TopicCatalog.swift in Sources */,
 				439E928ADA8C92D3F5A0D300 /* TopicDetailView.swift in Sources */,
