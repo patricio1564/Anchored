@@ -258,7 +258,7 @@ struct SeededGenerator: RandomNumberGenerator {
         correctIndex: 2,
         explanation: "Genesis 1:14–19 describes the creation of the sun, moon, and stars on the fourth day to mark seasons, days, and years."
     )
-    return QuizQuestionCard(
+    QuizQuestionCard(
         question: sample,
         questionIndex: 0,
         totalQuestions: 3,

@@ -152,42 +152,7 @@ enum TopicGradient: String, CaseIterable, Hashable, Sendable {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - Color(hex:)
-// ─────────────────────────────────────────────────────────────────────────────
-
-extension Color {
-    /// Parse a `#RRGGBB` or `#AARRGGBB` hex string into a SwiftUI Color.
-    /// Unknown input falls back to `.gray` rather than crashing, which keeps
-    /// preview and release builds resilient to any future palette typos.
-    init(hex: String) {
-        let scanner = Scanner(string: hex.replacingOccurrences(of: "#", with: ""))
-        var value: UInt64 = 0
-        guard scanner.scanHexInt64(&value) else {
-            self = .gray
-            return
-        }
-
-        let length = hex.replacingOccurrences(of: "#", with: "").count
-        let r, g, b, a: Double
-        switch length {
-        case 6:
-            a = 1.0
-            r = Double((value >> 16) & 0xFF) / 255.0
-            g = Double((value >> 8) & 0xFF) / 255.0
-            b = Double(value & 0xFF) / 255.0
-        case 8:
-            a = Double((value >> 24) & 0xFF) / 255.0
-            r = Double((value >> 16) & 0xFF) / 255.0
-            g = Double((value >> 8) & 0xFF) / 255.0
-            b = Double(value & 0xFF) / 255.0
-        default:
-            self = .gray
-            return
-        }
-        self = Color(.sRGB, red: r, green: g, blue: b, opacity: a)
-    }
-}
+// Color(hex:) is defined in AnchoredColors.swift
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - TopicsCatalog namespace
