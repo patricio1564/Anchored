@@ -1,25 +1,6 @@
-//
-//  OnboardingView.swift
-//  Anchored
-//
-//  First-run onboarding. Nine screens driven by a TabView with a Next
-//  button (not swipeable):
-//
-//  0. Welcome       — what Anchored is
-//  1. Goals         — why they downloaded (multi-select chips)
-//  2. Experience    — how familiar with the Bible (single select)
-//  3. Notifications — opt-in toggle with inline time picker
-//  4. Recommender   — interactive verse finder demo
-//  5. Prayer        — generated prayer with Amen / Skip
-//  6. Praise        — confetti + 100 XP celebration (only if prayed)
-//  7. Subscription  — weekly/yearly pricing with Apple disclosures
-//  8. Sign in       — Sign in with Apple
-//
-
 import SwiftUI
 import SwiftData
 import AuthenticationServices
-import UIKit
 
 struct OnboardingView: View {
 
@@ -29,11 +10,13 @@ struct OnboardingView: View {
 
     @State private var page: Int = 0
 
-    // Answers
+    // Page 1: Why
     @State private var selectedGoals: Set<String> = []
+
+    // Page 2: Familiarity
     @State private var selectedExperience: String = ""
 
-    // Notification state (page 3)
+    // Page 3: Reminder
     @State private var notificationsAccepted: Bool = false
     @State private var reminderDate: Date = {
         var comps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
@@ -41,452 +24,467 @@ struct OnboardingView: View {
         return Calendar.current.date(from: comps) ?? Date()
     }()
 
-    // Verse recommender state (page 4)
+    // Page 4: Verse finder
     @State private var demoInput: String = ""
     @State private var demoPhase: RecommenderDemoPhase = .idle
     @FocusState private var isFeelingFieldFocused: Bool
     enum RecommenderDemoPhase { case idle, loading, done(VerseRecommendation) }
 
-    // Prayer state (pages 5-6)
+    // Pages 5-6: Prayer + Reward
     @State private var prayerText: String = ""
     @State private var prayerLoading: Bool = false
     @State private var didPray: Bool = false
-    @State private var showConfetti: Bool = false
+    @State private var showSparkleBurst: Bool = false
     @State private var xpScale: CGFloat = 0.5
 
-    // Subscription state (page 7)
+    // Page 7: Subscribe
     @State private var selectedPlan: PremiumManager.Plan = .yearly
 
-    private let totalPages = 9
+    private let totalSteps = 7
 
     // MARK: - Body
 
     var body: some View {
         ZStack {
-            Color(red: 0.08, green: 0.06, blue: 0.05).ignoresSafeArea()
+            // Dawn background (gradient + glow)
+            AnchoredColors.backgroundGradient.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Branding bar — amber/parchment for dark bg
-                HStack(spacing: 8) {
-                    Image(systemName: "book.closed.fill")
-                        .foregroundStyle(AnchoredColors.amber)
-                    Text("Anchored")
-                        .anchoredStyle(.h3)
-                        .foregroundStyle(AnchoredColors.parchment)
-                }
-                .padding(.top, 40)
-                .padding(.bottom, 8)
+            ZStack {
+                RadialGradient(
+                    colors: [AnchoredColors.coralSoft.opacity(0.56), .clear],
+                    center: UnitPoint(x: 0.5, y: -0.1),
+                    startRadius: 0, endRadius: 300
+                )
+                RadialGradient(
+                    colors: [AnchoredColors.lilac.opacity(0.25), .clear],
+                    center: UnitPoint(x: 1.0, y: 0.5),
+                    startRadius: 0, endRadius: 250
+                )
+                RadialGradient(
+                    colors: [AnchoredColors.blueSoft.opacity(0.50), .clear],
+                    center: UnitPoint(x: 0.0, y: 0.9),
+                    startRadius: 0, endRadius: 280
+                )
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
 
-                // Progress dots
-                HStack(spacing: 6) {
-                    ForEach(0..<totalPages, id: \.self) { i in
-                        Circle()
-                            .fill(i == page ? AnchoredColors.amber : AnchoredColors.parchment.opacity(0.3))
-                            .frame(width: i == page ? 8 : 6, height: i == page ? 8 : 6)
-                            .animation(.easeInOut(duration: 0.2), value: page)
-                    }
-                }
-                .padding(.bottom, 16)
-
-                // Page content
-                TabView(selection: $page) {
-                    welcomePage.tag(0)
-                    goalsPage.tag(1)
-                    experiencePage.tag(2)
-                    notificationPage.tag(3)
-                    recommenderDemoPage.tag(4)
-                    prayerPage.tag(5)
-                    praisePage.tag(6)
-                    subscriptionPage.tag(7)
-                    signInPage.tag(8)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.easeInOut(duration: 0.3), value: page)
-
-                // Next button — hidden for pages 5+ (they have their own nav)
-                if page < 5 {
-                    nextButton
-                        .screenPadding()
-                        .padding(.bottom, 24)
+            // Page content
+            Group {
+                switch page {
+                case 0: welcomePage
+                case 1: whyPage
+                case 2: familiarityPage
+                case 3: reminderPage
+                case 4: verseFinderPage
+                case 5: prayerPage
+                case 6: rewardPage
+                case 7: subscribePage
+                case 8: signInPage
+                default: EmptyView()
                 }
             }
+            .transition(.opacity)
+            .animation(.easeInOut(duration: 0.3), value: page)
         }
     }
 
-    // MARK: - Next button
-
-    private var nextButton: some View {
-        Button {
-            // Page 3: save notification time if accepted
-            if page == 3 && notificationsAccepted {
-                let comps = Calendar.current.dateComponents([.hour, .minute], from: reminderDate)
-                let hour = comps.hour ?? 8
-                let minute = comps.minute ?? 0
-                let row = ensureSettingsRow()
-                row.dailyReminderTime = String(format: "%02d:%02d", hour, minute)
-                row.notificationsEnabled = true
-                try? modelContext.save()
-                Task {
-                    _ = await NotificationService.shared.scheduleDailyReminder(hour: hour, minute: minute)
-                }
-            }
-            // Page 4: dismiss keyboard, start loading prayer
-            if page == 4 {
-                isFeelingFieldFocused = false
-                Task { await generatePrayer() }
-            }
-            withAnimation { page += 1 }
-        } label: {
-            Text("Continue")
-                .anchoredStyle(.bodyMd)
-                .frame(maxWidth: .infinity, minHeight: 52)
-                .background(nextEnabled ? AnchoredColors.amber : AnchoredColors.parchment.opacity(0.3))
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .disabled(!nextEnabled)
-    }
-
-    private var nextEnabled: Bool {
-        switch page {
-        case 1: return !selectedGoals.isEmpty
-        case 2: return !selectedExperience.isEmpty
-        default: return true
-        }
-    }
-
-    // MARK: - Onboarding card helper
-
-    private func onboardingCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 16, content: content)
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AnchoredColors.navy)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-
-    // MARK: - Page 0: Welcome
+    // ────────────────────────────────────────────────────────────────
+    // MARK: - 01 Welcome
+    // ────────────────────────────────────────────────────────────────
 
     private var welcomePage: some View {
-        VStack(spacing: 28) {
-            Spacer(minLength: 20)
-            ZStack {
-                Circle()
-                    .fill(AnchoredColors.amber.opacity(0.14))
-                    .frame(width: 140, height: 140)
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 56, weight: .light))
-                    .foregroundStyle(AnchoredColors.amber)
-            }
-            VStack(spacing: 12) {
-                Text("Welcome to Anchored")
-                    .anchoredStyle(.h1)
-                    .foregroundStyle(AnchoredColors.amber)
-                    .multilineTextAlignment(.center)
-                Text("Read, study, and reflect on the Bible at your own pace. Built for beginners and lifelong learners alike.")
-                    .anchoredStyle(.body)
-                    .foregroundStyle(AnchoredColors.parchment.opacity(0.7))
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .screenPadding()
-            Spacer(minLength: 20)
-        }
-    }
-
-    // MARK: - Page 1: Goals
-
-    private let goals: [(id: String, label: String, icon: String)] = [
-        ("faith",      "Grow in faith",           "heart.fill"),
-        ("reading",    "Read the Bible regularly", "book.fill"),
-        ("knowledge",  "Deepen Bible knowledge",   "lightbulb.fill"),
-        ("prayer",     "Strengthen prayer life",   "hands.sparkles.fill"),
-        ("comfort",    "Find comfort",             "hand.raised.fill"),
-        ("devotional", "Daily devotional",         "sun.max.fill"),
-    ]
-
-    private var goalsPage: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Why did you download Anchored?")
-                    .anchoredStyle(.h2)
-                    .foregroundStyle(AnchoredColors.amber)
-                Text("Select all that apply.")
-                    .anchoredStyle(.body)
-                    .foregroundStyle(AnchoredColors.parchment.opacity(0.7))
-            }
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                ForEach(goals, id: \.id) { goal in
-                    goalChip(goal)
-                }
-            }
-
-            Spacer()
-        }
-        .screenPadding()
-        .padding(.top, 8)
-    }
-
-    private func goalChip(_ goal: (id: String, label: String, icon: String)) -> some View {
-        let selected = selectedGoals.contains(goal.id)
-        return Button {
-            if selected { selectedGoals.remove(goal.id) } else { selectedGoals.insert(goal.id) }
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: goal.icon)
-                    .font(.system(size: 13))
-                Text(goal.label)
-                    .anchoredStyle(.caption)
-                    .multilineTextAlignment(.leading)
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(selected ? .white : AnchoredColors.parchment)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-            .background(selected ? AnchoredColors.amber : AnchoredColors.navy)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(selected ? Color.clear : AnchoredColors.parchment.opacity(0.2), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Page 2: Experience
-
-    private let experiences: [(id: String, label: String, sub: String)] = [
-        ("new",      "New to the Bible",  "Just getting started"),
-        ("some",     "Some familiarity",  "I've read parts of it"),
-        ("regular",  "Regular reader",    "I read the Bible often"),
-        ("lifelong", "Lifelong student",  "It's central to my life"),
-    ]
-
-    private var experiencePage: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("How familiar are you with the Bible?")
-                    .anchoredStyle(.h2)
-                    .foregroundStyle(AnchoredColors.amber)
-            }
-
-            VStack(spacing: 10) {
-                ForEach(experiences, id: \.id) { exp in
-                    experienceRow(exp)
-                }
-            }
-
-            Spacer()
-        }
-        .screenPadding()
-        .padding(.top, 8)
-    }
-
-    private func experienceRow(_ exp: (id: String, label: String, sub: String)) -> some View {
-        let selected = selectedExperience == exp.id
-        return Button {
-            selectedExperience = exp.id
-        } label: {
-            HStack(spacing: 14) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(exp.label)
-                        .anchoredStyle(.bodyMd)
-                        .foregroundStyle(selected ? .white : AnchoredColors.parchment)
-                    Text(exp.sub)
-                        .anchoredStyle(.caption)
-                        .foregroundStyle(selected ? .white.opacity(0.75) : AnchoredColors.parchment.opacity(0.5))
-                }
+        ZStack {
+            VStack(spacing: 0) {
+                BrandHeader()
                 Spacer()
-                if selected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(selected ? AnchoredColors.amber : AnchoredColors.navy)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(selected ? Color.clear : AnchoredColors.parchment.opacity(0.2), lineWidth: 1)
-            )
+
+            VStack(spacing: 14) {
+                // Sun illustration
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [AnchoredColors.gold, AnchoredColors.coral.opacity(0.4), AnchoredColors.coral.opacity(0)],
+                                center: .center,
+                                startRadius: 0, endRadius: 90
+                            )
+                        )
+                        .frame(width: 180, height: 180)
+                    Circle()
+                        .fill(AnchoredColors.gold)
+                        .frame(width: 80, height: 80)
+                    Circle()
+                        .stroke(AnchoredColors.coral, lineWidth: 1)
+                        .frame(width: 120, height: 120)
+                        .opacity(0.5)
+                    Circle()
+                        .stroke(AnchoredColors.lilac, lineWidth: 1)
+                        .frame(width: 156, height: 156)
+                        .opacity(0.4)
+                }
+                .padding(.bottom, 10)
+
+                // Headline
+                VStack(spacing: 0) {
+                    Text("Every morning,")
+                        .font(.custom("Newsreader", size: 38).weight(.regular))
+                        .tracking(-0.76)
+                    Text("new mercies.")
+                        .font(.custom("Newsreader", size: 38).weight(.regular).italic())
+                        .tracking(-0.76)
+                        .foregroundStyle(AnchoredColors.coral)
+                }
+                .foregroundStyle(AnchoredColors.ink)
+                .multilineTextAlignment(.center)
+                .lineLimit(nil)
+
+                Text("A bright, gentle way to read and reflect on Scripture — for beginners and lifelong learners.")
+                    .font(.custom("Outfit", size: 14.5).weight(.medium))
+                    .foregroundStyle(AnchoredColors.inkSoft)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+                    .frame(maxWidth: 280)
+            }
+            .padding(.horizontal, 32)
+
+            DawnBottomButton(label: "Begin the journey") {
+                withAnimation { page = 1 }
+            }
         }
-        .buttonStyle(.plain)
     }
 
-    // MARK: - Page 3: Notifications
+    // ────────────────────────────────────────────────────────────────
+    // MARK: - 02 Why
+    // ────────────────────────────────────────────────────────────────
 
-    private var notificationPage: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                onboardingCard {
-                    HStack(alignment: .top, spacing: 14) {
-                        ZStack {
-                            Circle()
-                                .fill(AnchoredColors.amber.opacity(0.2))
-                                .frame(width: 48, height: 48)
-                            Image(systemName: "bell.fill")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(AnchoredColors.amber)
+    private let reasons: [(id: String, label: String, icon: String, accent: Color)] = [
+        ("faith",      "Grow in faith",       "heart.fill",          AnchoredColors.coral),
+        ("reading",    "Read regularly",       "book.fill",           AnchoredColors.gold),
+        ("knowledge",  "Deepen knowledge",     "lightbulb.fill",      AnchoredColors.blue),
+        ("prayer",     "Strengthen prayer",    "hands.sparkles.fill", AnchoredColors.lilac),
+        ("comfort",    "Find comfort",         "sun.max.fill",        AnchoredColors.coral),
+        ("devotional", "Daily devotion",       "moon.fill",           AnchoredColors.gold),
+    ]
+
+    private var whyPage: some View {
+        ZStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    BrandHeader(step: 0, total: totalSteps)
+                        .frame(maxWidth: .infinity)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 0) {
+                            Text("What drew you ")
+                                .font(.custom("Newsreader", size: 30).weight(.regular))
+                                .tracking(-0.6)
+                            Text("here?")
+                                .font(.custom("Newsreader", size: 30).weight(.regular).italic())
+                                .tracking(-0.6)
+                                .foregroundStyle(AnchoredColors.coral)
                         }
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Stay rooted in the Word")
-                                .anchoredStyle(.h2)
-                                .foregroundStyle(AnchoredColors.amber)
-                            Text("A daily reminder helps you build a consistent Bible habit. You can change this any time in Settings.")
-                                .anchoredStyle(.body)
-                                .foregroundStyle(AnchoredColors.parchment.opacity(0.7))
-                                .fixedSize(horizontal: false, vertical: true)
+                        .foregroundStyle(AnchoredColors.ink)
+
+                        Text("Pick anything that resonates.")
+                            .font(.custom("Outfit", size: 13.5))
+                            .foregroundStyle(AnchoredColors.inkSoft)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 24)
+                    .padding(.bottom, 22)
+
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                        ForEach(reasons, id: \.id) { reason in
+                            SelectionTile(
+                                label: reason.label,
+                                icon: reason.icon,
+                                accent: reason.accent,
+                                selected: selectedGoals.contains(reason.id)
+                            ) {
+                                if selectedGoals.contains(reason.id) {
+                                    selectedGoals.remove(reason.id)
+                                } else {
+                                    selectedGoals.insert(reason.id)
+                                }
+                            }
                         }
                     }
+                    .padding(.horizontal, 24)
+
+                    Spacer(minLength: 120)
                 }
+            }
 
-                onboardingCard {
-                    Toggle(isOn: $notificationsAccepted) {
-                        Text("Enable daily reminder")
-                            .anchoredStyle(.bodyMd)
-                            .foregroundStyle(AnchoredColors.parchment)
+            DawnBottomButton(label: "Continue", disabled: selectedGoals.isEmpty) {
+                withAnimation { page = 2 }
+            }
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // MARK: - 03 Familiarity
+    // ────────────────────────────────────────────────────────────────
+
+    private let experiences: [(id: String, title: String, subtitle: String)] = [
+        ("new",      "New to the Bible",  "Just getting started"),
+        ("some",     "Some familiarity",  "Read parts of it"),
+        ("regular",  "Regular reader",    "I read often"),
+        ("lifelong", "Lifelong student",  "Central to my life"),
+    ]
+
+    private var familiarityPage: some View {
+        ZStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    BrandHeader(step: 1, total: totalSteps)
+                        .frame(maxWidth: .infinity)
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 0) {
+                            Text("How well do you ")
+                                .font(.custom("Newsreader", size: 30).weight(.regular))
+                                .tracking(-0.6)
+                            Text("know it?")
+                                .font(.custom("Newsreader", size: 30).weight(.regular).italic())
+                                .tracking(-0.6)
+                                .foregroundStyle(AnchoredColors.coral)
+                        }
+                        .foregroundStyle(AnchoredColors.ink)
                     }
-                    .tint(AnchoredColors.amber)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 28)
+                    .padding(.bottom, 22)
+
+                    VStack(spacing: 10) {
+                        ForEach(experiences, id: \.id) { exp in
+                            RadioRow(
+                                title: exp.title,
+                                subtitle: exp.subtitle,
+                                selected: selectedExperience == exp.id
+                            ) {
+                                selectedExperience = exp.id
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 24)
+
+                    Spacer(minLength: 120)
+                }
+            }
+
+            DawnBottomButton(label: "Continue", disabled: selectedExperience.isEmpty) {
+                withAnimation { page = 3 }
+            }
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // MARK: - 04 Daily Reminder
+    // ────────────────────────────────────────────────────────────────
+
+    private var reminderPage: some View {
+        ZStack {
+            ScrollView {
+                VStack(spacing: 14) {
+                    BrandHeader(step: 2, total: totalSteps)
+
+                    // Info card
+                    VStack(alignment: .leading, spacing: 14) {
+                        // Gradient icon
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(AnchoredColors.gradientPrimary)
+                                .frame(width: 48, height: 48)
+                                .shadow(color: AnchoredColors.coral.opacity(0.35), radius: 9, x: 0, y: 8)
+                            Image(systemName: "bell.fill")
+                                .font(.system(size: 22))
+                                .foregroundStyle(.white)
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 0) {
+                                Text("One small ")
+                                    .font(.custom("Newsreader", size: 22).weight(.regular))
+                                Text("moment")
+                                    .font(.custom("Newsreader", size: 22).weight(.regular).italic())
+                                    .foregroundStyle(AnchoredColors.coral)
+                                Text(", daily.")
+                                    .font(.custom("Newsreader", size: 22).weight(.regular))
+                            }
+                            .foregroundStyle(AnchoredColors.ink)
+
+                            Text("A gentle nudge to keep your habit alive. Adjust anytime in Settings.")
+                                .font(.custom("Outfit", size: 13.5))
+                                .foregroundStyle(AnchoredColors.inkSoft)
+                                .lineSpacing(4)
+                        }
+                    }
+                    .glassCard(padding: 22, cornerRadius: 24)
+                    .padding(.horizontal, 24)
+
+                    // Toggle + time picker card
+                    VStack(spacing: 18) {
+                        HStack {
+                            Text("Daily reminder")
+                                .font(.custom("Outfit", size: 15.5).weight(.semibold))
+                                .foregroundStyle(AnchoredColors.ink)
+                            Spacer()
+                            DawnToggle(isOn: $notificationsAccepted)
+                        }
+
+                        if notificationsAccepted {
+                            VStack(alignment: .leading, spacing: 14) {
+                                Text("REMINDER TIME")
+                                    .font(.custom("Outfit", size: 11).weight(.semibold))
+                                    .tracking(1.54)
+                                    .foregroundStyle(AnchoredColors.inkSoft)
+
+                                DatePicker(
+                                    "",
+                                    selection: $reminderDate,
+                                    displayedComponents: .hourAndMinute
+                                )
+                                .datePickerStyle(.wheel)
+                                .labelsHidden()
+                                .frame(height: 130)
+                                .frame(maxWidth: .infinity)
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                    }
+                    .glassCard(padding: 22, cornerRadius: 24)
+                    .padding(.horizontal, 24)
                     .onChange(of: notificationsAccepted) { _, accepted in
                         if accepted {
-                            Task {
-                                _ = await NotificationService.shared.requestAuthorization()
-                            }
+                            Task { _ = await NotificationService.shared.requestAuthorization() }
                         }
                     }
 
-                    if notificationsAccepted {
-                        Divider()
-                            .background(AnchoredColors.parchment.opacity(0.15))
-
-                        Text("Reminder time")
-                            .anchoredStyle(.label)
-                            .foregroundStyle(AnchoredColors.parchment.opacity(0.6))
-
-                        DatePicker(
-                            "",
-                            selection: $reminderDate,
-                            displayedComponents: .hourAndMinute
-                        )
-                        .datePickerStyle(.wheel)
-                        .labelsHidden()
-                        .colorScheme(.dark)
-                        .frame(maxWidth: .infinity)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
+                    Spacer(minLength: 120)
                 }
-
-                Spacer(minLength: 20)
             }
-            .screenPadding()
-            .padding(.top, 8)
+
+            DawnBottomButton(label: "Continue") {
+                if notificationsAccepted {
+                    let comps = Calendar.current.dateComponents([.hour, .minute], from: reminderDate)
+                    let hour = comps.hour ?? 8
+                    let minute = comps.minute ?? 0
+                    let row = ensureSettingsRow()
+                    row.dailyReminderTime = String(format: "%02d:%02d", hour, minute)
+                    row.notificationsEnabled = true
+                    try? modelContext.save()
+                    Task { _ = await NotificationService.shared.scheduleDailyReminder(hour: hour, minute: minute) }
+                }
+                Task { await generatePrayer() }
+                withAnimation { page = 4 }
+            }
         }
     }
 
-    // MARK: - Page 4: Verse Recommender Demo
+    // ────────────────────────────────────────────────────────────────
+    // MARK: - 05 Verse Finder
+    // ────────────────────────────────────────────────────────────────
 
-    private var recommenderDemoPage: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Header
-                HStack(alignment: .top, spacing: 14) {
-                    ZStack {
-                        Circle()
-                            .fill(AnchoredColors.amber)
-                            .frame(width: 44, height: 44)
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Find verses for how you feel")
-                            .anchoredStyle(.h2)
-                            .foregroundStyle(AnchoredColors.amber)
-                        Text("Tap the sparkles button in the Bible tab anytime you need scripture that speaks to your situation.")
-                            .anchoredStyle(.body)
-                            .foregroundStyle(AnchoredColors.parchment.opacity(0.7))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
+    private var verseFinderPage: some View {
+        ZStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    BrandHeader(step: 3, total: totalSteps)
+                        .frame(maxWidth: .infinity)
+                        .padding(.bottom, 24)
 
-                // Interactive input
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Try it now — how are you feeling?")
-                        .anchoredStyle(.label)
-                        .foregroundStyle(AnchoredColors.parchment.opacity(0.6))
-
-                    ZStack(alignment: .topLeading) {
-                        TextEditor(text: $demoInput)
-                            .focused($isFeelingFieldFocused)
-                            .scrollContentBackground(.hidden)
-                            .foregroundStyle(AnchoredColors.parchment)
-                            .padding(8)
-                            .frame(minHeight: 80, maxHeight: 120)
-                            .background(AnchoredColors.navy)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(AnchoredColors.parchment.opacity(0.2), lineWidth: 1)
-                            )
-                        if demoInput.isEmpty {
-                            Text("e.g. \"I'm anxious about a big decision…\"")
-                                .anchoredStyle(.body)
-                                .foregroundStyle(AnchoredColors.parchment.opacity(0.4))
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 14)
-                                .allowsHitTesting(false)
+                    // Header with icon
+                    HStack(alignment: .top, spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(AnchoredColors.gradientCool)
+                                .frame(width: 44, height: 44)
+                                .shadow(color: AnchoredColors.lilac.opacity(0.35), radius: 9, x: 0, y: 8)
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 20))
+                                .foregroundStyle(.white)
                         }
-                    }
-
-                    Button {
-                        isFeelingFieldFocused = false
-                        Task { await runDemoRecommender() }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if case .loading = demoPhase {
-                                ProgressView().tint(.white)
-                            } else {
-                                Image(systemName: "sparkles")
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 0) {
+                                Text("A verse for ")
+                                    .font(.custom("Newsreader", size: 22).weight(.regular))
+                                Text("any moment")
+                                    .font(.custom("Newsreader", size: 22).weight(.regular).italic())
+                                    .foregroundStyle(AnchoredColors.coral)
                             }
-                            Text({ if case .idle = demoPhase { return "Find verses" }; return "Find again" }())
-                                .anchoredStyle(.bodyMd)
+                            .foregroundStyle(AnchoredColors.ink)
+
+                            Text("Tell us what's on your heart.")
+                                .font(.custom("Outfit", size: 13))
+                                .foregroundStyle(AnchoredColors.inkSoft)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .background(demoInput.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3
-                                    ? AnchoredColors.amber : AnchoredColors.parchment.opacity(0.3))
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    .buttonStyle(.plain)
-                    .disabled(demoInput.trimmingCharacters(in: .whitespacesAndNewlines).count < 3)
-                }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 18)
 
-                // Results preview (first verse only)
-                if case .done(let rec) = demoPhase, let first = rec.verses.first {
-                    onboardingCard {
-                        Text(first.reference)
-                            .anchoredStyle(.reference)
-                            .foregroundStyle(AnchoredColors.amber)
-                        Text(first.text)
-                            .anchoredStyle(.scripture)
-                            .foregroundStyle(AnchoredColors.parchment)
-                        Text(first.explanation)
-                            .anchoredStyle(.body)
-                            .foregroundStyle(AnchoredColors.parchment.opacity(0.7))
-                            .lineLimit(3)
+                    // Input field
+                    VStack(spacing: 10) {
+                        ZStack(alignment: .topLeading) {
+                            TextEditor(text: $demoInput)
+                                .focused($isFeelingFieldFocused)
+                                .scrollContentBackground(.hidden)
+                                .foregroundStyle(AnchoredColors.ink)
+                                .font(.custom("Newsreader", size: 14.5).weight(.regular).italic())
+                                .padding(14)
+                                .frame(minHeight: 52, maxHeight: 52)
+                                .background(AnchoredColors.glassStrong)
+                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .stroke(AnchoredColors.line, lineWidth: 1)
+                                )
+
+                            if demoInput.isEmpty {
+                                Text("\"I feel like I am being tested.\"")
+                                    .font(.custom("Newsreader", size: 14.5).weight(.regular).italic())
+                                    .foregroundStyle(AnchoredColors.inkMute)
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 16)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+
+                        // Find button
+                        DawnButton(
+                            label: { if case .idle = demoPhase { return "Find another" }; return "Find another" }(),
+                            primary: true,
+                            icon: "sparkles",
+                            disabled: demoInput.trimmingCharacters(in: .whitespacesAndNewlines).count < 3
+                        ) {
+                            isFeelingFieldFocused = false
+                            Task { await runDemoRecommender() }
+                        }
                     }
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                }
+                    .padding(.horizontal, 24)
 
-                Spacer(minLength: 20)
+                    // Verse result
+                    if case .done(let rec) = demoPhase, let first = rec.verses.first {
+                        VerseCard(
+                            citation: first.reference,
+                            verse: first.text,
+                            reflection: "A reminder God isn't distant when things are hard — he is here, right now."
+                        )
+                        .padding(.horizontal, 24)
+                        .padding(.top, 18)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
+
+                    Spacer(minLength: 120)
+                }
             }
-            .screenPadding()
-            .padding(.top, 8)
+
+            DawnBottomButton(label: "Continue") {
+                isFeelingFieldFocused = false
+                Task { await generatePrayer() }
+                withAnimation { page = 5 }
+            }
         }
     }
 
@@ -499,83 +497,76 @@ struct OnboardingView: View {
         withAnimation { demoPhase = .done(result) }
     }
 
-    // MARK: - Page 5: Prayer
+    // ────────────────────────────────────────────────────────────────
+    // MARK: - 06 Prayer
+    // ────────────────────────────────────────────────────────────────
 
     private var prayerPage: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                Spacer(minLength: 12)
+        ZStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    BrandHeader(step: 4, total: totalSteps)
 
-                onboardingCard {
-                    HStack(spacing: 12) {
-                        Text("🙏")
-                            .font(.system(size: 32))
-                        Text("Let's Talk to God")
-                            .anchoredStyle(.h2)
-                            .foregroundStyle(AnchoredColors.amber)
-                    }
-
-                    if prayerLoading {
+                    VStack(alignment: .leading, spacing: 16) {
                         HStack(spacing: 12) {
-                            ProgressView()
-                                .tint(AnchoredColors.amber)
-                            Text("Preparing a prayer for you...")
-                                .anchoredStyle(.body)
-                                .foregroundStyle(AnchoredColors.parchment.opacity(0.6))
+                            Text("🙏").font(.system(size: 32))
+                            Text("Let's Talk to God")
+                                .font(.custom("Newsreader", size: 22).weight(.medium))
+                                .foregroundStyle(AnchoredColors.ink)
                         }
-                        .padding(.vertical, 8)
-                    } else if !prayerText.isEmpty {
-                        Text(prayerText)
-                            .anchoredStyle(.scripture)
-                            .foregroundStyle(AnchoredColors.parchment)
-                            .fixedSize(horizontal: false, vertical: true)
 
-                        Text("Take a moment to pray this to the Lord.")
-                            .anchoredStyle(.body)
-                            .foregroundStyle(AnchoredColors.parchment.opacity(0.5))
-                    } else {
-                        Text("A personal prayer will be prepared based on your verse.")
-                            .anchoredStyle(.body)
-                            .foregroundStyle(AnchoredColors.parchment.opacity(0.6))
-                            .fixedSize(horizontal: false, vertical: true)
+                        if prayerLoading {
+                            HStack(spacing: 12) {
+                                ProgressView().tint(AnchoredColors.coral)
+                                Text("Preparing a prayer for you...")
+                                    .font(.custom("Outfit", size: 14.5))
+                                    .foregroundStyle(AnchoredColors.inkSoft)
+                            }
+                            .padding(.vertical, 8)
+                        } else if !prayerText.isEmpty {
+                            Text(prayerText)
+                                .font(.custom("Newsreader", size: 19).weight(.regular).italic())
+                                .lineSpacing(7)
+                                .foregroundStyle(AnchoredColors.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            Text("Take a moment to pray this to the Lord.")
+                                .font(.custom("Outfit", size: 14))
+                                .foregroundStyle(AnchoredColors.inkSoft)
+                        } else {
+                            Text("A personal prayer will be prepared based on your verse.")
+                                .font(.custom("Outfit", size: 14.5))
+                                .foregroundStyle(AnchoredColors.inkSoft)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
+                    .glassCard(padding: 22, cornerRadius: 24)
+                    .padding(.horizontal, 24)
+
+                    VStack(spacing: 12) {
+                        DawnButton(label: "Amen 🙏") {
+                            didPray = true
+                            withAnimation { page = 6 }
+                        }
+                        Button {
+                            withAnimation { page = 7 }
+                        } label: {
+                            Text("Skip")
+                                .font(.custom("Outfit", size: 14.5))
+                                .foregroundStyle(AnchoredColors.inkMute)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 24)
+
+                    Spacer(minLength: 20)
                 }
-                .screenPadding()
-
-                VStack(spacing: 12) {
-                    // Amen button
-                    Button {
-                        didPray = true
-                        withAnimation { page = 6 }
-                    } label: {
-                        Text("Amen 🙏")
-                            .anchoredStyle(.bodyMd)
-                            .frame(maxWidth: .infinity, minHeight: 52)
-                            .background(AnchoredColors.amber)
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-
-                    // Skip button
-                    Button {
-                        withAnimation { page = 7 }
-                    } label: {
-                        Text("Skip")
-                            .anchoredStyle(.body)
-                            .foregroundStyle(AnchoredColors.parchment.opacity(0.5))
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .screenPadding()
-
-                Spacer(minLength: 20)
             }
-        }
-        .onAppear {
-            if prayerText.isEmpty && !prayerLoading {
-                Task { await generatePrayer() }
+            .onAppear {
+                if prayerText.isEmpty && !prayerLoading {
+                    Task { await generatePrayer() }
+                }
             }
         }
     }
@@ -591,66 +582,82 @@ struct OnboardingView: View {
         prayerLoading = false
     }
 
-    // MARK: - Page 6: Praise
+    // ────────────────────────────────────────────────────────────────
+    // MARK: - 07 Reward (SparkleBurst)
+    // ────────────────────────────────────────────────────────────────
 
-    private var praisePage: some View {
+    private var rewardPage: some View {
         ZStack {
-            ConfettiView()
-                .ignoresSafeArea()
-                .opacity(showConfetti ? 1 : 0)
+            BrandHeader(step: 4, total: totalSteps)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
-            VStack(spacing: 28) {
-                Spacer(minLength: 20)
+            // Sparkle dots
+            sparkleDots
 
+            VStack(spacing: 10) {
+                // Central sparkle icon
                 ZStack {
                     Circle()
-                        .fill(AnchoredColors.amber.opacity(0.2))
-                        .frame(width: 120, height: 120)
+                        .fill(
+                            RadialGradient(
+                                colors: [AnchoredColors.coralSoft, .clear],
+                                center: .center,
+                                startRadius: 0, endRadius: 70
+                            )
+                        )
+                        .frame(width: 140, height: 140)
+                    Circle()
+                        .fill(AnchoredColors.gradientPrimary)
+                        .frame(width: 80, height: 80)
+                        .shadow(color: AnchoredColors.coral.opacity(0.5), radius: 20, x: 0, y: 16)
                     Image(systemName: "sparkles")
-                        .font(.system(size: 48, weight: .light))
-                        .foregroundStyle(AnchoredColors.amber)
-                }
-
-                VStack(spacing: 12) {
-                    Text("God heard every word.")
-                        .anchoredStyle(.h1)
-                        .foregroundStyle(AnchoredColors.amber)
-                        .multilineTextAlignment(.center)
-
-                    Text("Prayer is how we grow closer to Him.")
-                        .anchoredStyle(.body)
-                        .foregroundStyle(AnchoredColors.parchment.opacity(0.7))
-                        .multilineTextAlignment(.center)
-                }
-                .screenPadding()
-
-                // +100 XP badge
-                Text("+100 XP")
-                    .anchoredStyle(.xpDigit)
-                    .foregroundStyle(AnchoredColors.amber)
-                    .scaleEffect(xpScale)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.6), value: xpScale)
-
-                Spacer(minLength: 20)
-
-                Button {
-                    withAnimation { page = 7 }
-                } label: {
-                    Text("Continue")
-                        .anchoredStyle(.bodyMd)
-                        .frame(maxWidth: .infinity, minHeight: 52)
-                        .background(AnchoredColors.amber)
+                        .font(.system(size: 40))
                         .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
-                .buttonStyle(.plain)
-                .screenPadding()
-                .padding(.bottom, 24)
+                .padding(.bottom, 20)
+
+                VStack(spacing: 0) {
+                    Text("He hears")
+                        .font(.custom("Newsreader", size: 32).weight(.regular))
+                        .tracking(-0.64)
+                    Text("every word.")
+                        .font(.custom("Newsreader", size: 32).weight(.regular).italic())
+                        .tracking(-0.64)
+                        .foregroundStyle(AnchoredColors.coral)
+                }
+                .foregroundStyle(AnchoredColors.ink)
+                .multilineTextAlignment(.center)
+
+                Text("Prayer is how we draw close.")
+                    .font(.custom("Outfit", size: 14))
+                    .foregroundStyle(AnchoredColors.inkSoft)
+                    .padding(.bottom, 14)
+
+                // XP pill
+                HStack(spacing: 8) {
+                    Text("+100")
+                        .font(.custom("Newsreader", size: 20).weight(.semibold))
+                        .foregroundStyle(AnchoredColors.coral)
+                    Text("XP")
+                        .font(.custom("Outfit", size: 11).weight(.semibold))
+                        .tracking(1.65)
+                        .foregroundStyle(AnchoredColors.inkSoft)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(.white, in: Capsule())
+                .shadow(color: AnchoredColors.coral.opacity(0.3), radius: 11, x: 0, y: 8)
+                .overlay(Capsule().stroke(AnchoredColors.coralSoft, lineWidth: 1))
+                .scaleEffect(xpScale)
+            }
+            .padding(.horizontal, 32)
+
+            DawnBottomButton(label: "Continue") {
+                withAnimation { page = 7 }
             }
         }
         .onAppear {
-            showConfetti = true
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.2)) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.4)) {
                 xpScale = 1.0
             }
             Task {
@@ -660,204 +667,236 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Page 7: Subscription
+    private var sparkleDots: some View {
+        GeometryReader { _ in
+            ForEach(0..<35, id: \.self) { i in
+                let x = CGFloat(30 + (i * 23) % 310)
+                let y = CGFloat(130 + (i * 47) % 480)
+                let size = CGFloat(2 + (i % 5))
+                let colors: [Color] = [AnchoredColors.coral, AnchoredColors.gold, AnchoredColors.lilac, AnchoredColors.blue]
+                let opacity = 0.3 + Double(i % 5) / 10.0
+                Circle()
+                    .fill(colors[i % 4])
+                    .frame(width: size, height: size)
+                    .opacity(opacity)
+                    .position(x: x, y: y)
+            }
+        }
+        .allowsHitTesting(false)
+    }
 
-    private var subscriptionPage: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Header
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(AnchoredColors.amber.opacity(0.2))
-                            .frame(width: 44, height: 44)
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(AnchoredColors.amber)
+    // ────────────────────────────────────────────────────────────────
+    // MARK: - 08 Subscribe
+    // ────────────────────────────────────────────────────────────────
+
+    private var subscribePage: some View {
+        ZStack {
+            ScrollView {
+                VStack(spacing: 0) {
+                    BrandHeader(step: 5, total: totalSteps)
+                        .padding(.bottom, 18)
+
+                    // Premium pill
+                    Text("ANCHORED PREMIUM")
+                        .font(.custom("Outfit", size: 11).weight(.semibold))
+                        .tracking(0.44)
+                        .foregroundStyle(AnchoredColors.coral)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(AnchoredColors.glass, in: Capsule())
+                        .overlay(Capsule().stroke(AnchoredColors.coralSoft, lineWidth: 1))
+                        .padding(.bottom, 10)
+
+                    // Headline
+                    HStack(spacing: 0) {
+                        Text("Go ")
+                            .font(.custom("Newsreader", size: 28).weight(.regular))
+                            .tracking(-0.56)
+                        Text("deeper")
+                            .font(.custom("Newsreader", size: 28).weight(.regular).italic())
+                            .tracking(-0.56)
+                            .foregroundStyle(AnchoredColors.coral)
+                        Text(".")
+                            .font(.custom("Newsreader", size: 28).weight(.regular))
+                            .tracking(-0.56)
                     }
-                    Text("Unlock Anchored Premium")
-                        .anchoredStyle(.h2)
-                        .foregroundStyle(AnchoredColors.amber)
-                }
+                    .foregroundStyle(AnchoredColors.ink)
+                    .padding(.bottom, 18)
 
-                // Feature list card
-                onboardingCard {
-                    featureRow(icon: "book.fill", text: "All 35 topics & 176 lessons")
-                    featureRow(icon: "globe", text: "5 Bible translations")
-                    featureRow(icon: "sparkles", text: "Verse Recommender")
-                    featureRow(icon: "arrow.down.circle.fill", text: "All future content")
-                }
-
-                // Plan cards side by side
-                HStack(spacing: 12) {
-                    planCard(plan: .weekly)
-                    planCard(plan: .yearly)
-                }
-
-                // Subscribe button
-                Button {
-                    Task { await premiumManager.purchase(selectedPlan) }
-                } label: {
-                    Group {
-                        if premiumManager.purchaseState == .purchasing {
-                            ProgressView().tint(.white)
-                        } else {
-                            Text("Subscribe")
-                                .anchoredStyle(.bodyMd)
+                    // Feature list
+                    let features = ["All 35 topics & 176 lessons", "5 Bible translations", "Verse Recommender", "All future content"]
+                    VStack(spacing: 0) {
+                        ForEach(features, id: \.self) { feature in
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(AnchoredColors.gradientPrimary)
+                                    .frame(width: 20, height: 20)
+                                    .overlay(
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundStyle(.white)
+                                    )
+                                Text(feature)
+                                    .font(.custom("Outfit", size: 14))
+                                    .foregroundStyle(AnchoredColors.ink)
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
                         }
                     }
-                    .frame(maxWidth: .infinity, minHeight: 52)
-                    .background(AnchoredColors.amber)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .disabled(premiumManager.purchaseState == .purchasing)
+                    .glassCard(padding: 22, cornerRadius: 22)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 14)
 
-                // Apple disclosures
-                VStack(spacing: 8) {
-                    Text("Payment will be charged to your Apple Account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period.")
-                        .anchoredStyle(.caption)
-                        .foregroundStyle(AnchoredColors.parchment.opacity(0.4))
-                        .multilineTextAlignment(.center)
+                    // Price tiles
+                    HStack(spacing: 10) {
+                        // Weekly
+                        Button {
+                            selectedPlan = .weekly
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("WEEKLY")
+                                    .font(.custom("Outfit", size: 11).weight(.semibold))
+                                    .tracking(1.54)
+                                    .foregroundStyle(AnchoredColors.inkSoft)
+                                    .padding(.bottom, 4)
+                                Text(premiumManager.weeklyProduct?.displayPrice ?? "$0.99")
+                                    .font(.custom("Newsreader", size: 30).weight(.medium))
+                                    .foregroundStyle(AnchoredColors.ink)
+                                Text("per week")
+                                    .font(.custom("Outfit", size: 11))
+                                    .foregroundStyle(AnchoredColors.inkSoft)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .glassCard(padding: 18, cornerRadius: 20)
+                        }
+                        .buttonStyle(.plain)
 
-                    HStack(spacing: 16) {
-                        Link("Terms of Service", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
-                            .anchoredStyle(.caption)
-                            .foregroundStyle(AnchoredColors.amber.opacity(0.8))
+                        // Yearly
+                        Button {
+                            selectedPlan = .yearly
+                        } label: {
+                            ZStack(alignment: .topTrailing) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("YEARLY")
+                                        .font(.custom("Outfit", size: 11).weight(.semibold))
+                                        .tracking(1.54)
+                                        .foregroundStyle(.white.opacity(0.85))
+                                        .padding(.bottom, 4)
+                                    Text(premiumManager.yearlyProduct?.displayPrice ?? "$29.99")
+                                        .font(.custom("Newsreader", size: 30).weight(.medium))
+                                        .foregroundStyle(.white)
+                                    Text("per year · save 42%")
+                                        .font(.custom("Outfit", size: 11))
+                                        .foregroundStyle(.white.opacity(0.85))
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(18)
+                                .background(AnchoredColors.gradientPrimary)
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                .shadow(color: AnchoredColors.coral.opacity(0.35), radius: 14, x: 0, y: 12)
 
-                        Link("Privacy Policy", destination: URL(string: "https://patricio1564.github.io/Anchored/privacy-policy")!)
-                            .anchoredStyle(.caption)
-                            .foregroundStyle(AnchoredColors.amber.opacity(0.8))
+                                Text("BEST")
+                                    .font(.custom("Outfit", size: 10).weight(.bold))
+                                    .tracking(0.44)
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 3)
+                                    .background(AnchoredColors.ink, in: Capsule())
+                                    .offset(x: -12, y: -9)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity)
                     }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 14)
+
+                    // Subscribe button
+                    DawnButton(label: "Begin subscription") {
+                        Task { await premiumManager.purchase(selectedPlan) }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 14)
+
+                    // Footer links
+                    Text("Terms · Privacy · Restore")
+                        .font(.custom("Outfit", size: 11.5))
+                        .foregroundStyle(AnchoredColors.inkSoft)
+                        .padding(.bottom, 8)
 
                     Button {
-                        Task { await premiumManager.restorePurchases() }
+                        withAnimation { page = 8 }
                     } label: {
-                        Text("Restore Purchases")
-                            .anchoredStyle(.caption)
-                            .foregroundStyle(AnchoredColors.amber)
+                        Text("Continue with Free")
+                            .font(.custom("Outfit", size: 13))
+                            .foregroundStyle(AnchoredColors.inkMute)
                     }
                     .buttonStyle(.plain)
-                }
-                .frame(maxWidth: .infinity)
 
-                // Continue with Free
-                Button {
-                    withAnimation { page = 8 }
-                } label: {
-                    Text("Continue with Free")
-                        .anchoredStyle(.body)
-                        .foregroundStyle(AnchoredColors.parchment.opacity(0.4))
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.plain)
-
-                Spacer(minLength: 20)
-            }
-            .screenPadding()
-            .padding(.top, 8)
-        }
-    }
-
-    private func featureRow(icon: String, text: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 16))
-                .foregroundStyle(AnchoredColors.amber)
-            Text(text)
-                .anchoredStyle(.body)
-                .foregroundStyle(AnchoredColors.parchment)
-            Spacer()
-        }
-    }
-
-    private func planCard(plan: PremiumManager.Plan) -> some View {
-        let isWeekly = plan == .weekly
-        let isSelected = selectedPlan == plan
-        let price = isWeekly
-            ? (premiumManager.weeklyProduct?.displayPrice ?? "$0.99")
-            : (premiumManager.yearlyProduct?.displayPrice ?? "$29.99")
-        let period = isWeekly ? "/ week" : "/ year"
-        let title = isWeekly ? "Weekly" : "Yearly"
-
-        return Button {
-            selectedPlan = plan
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(title)
-                        .anchoredStyle(.label)
-                        .foregroundStyle(AnchoredColors.parchment.opacity(0.6))
-                    Spacer()
-                    if !isWeekly {
-                        Text("Best Value")
-                            .anchoredStyle(.caption)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(AnchoredColors.amber)
-                            .clipShape(Capsule())
-                    }
-                }
-                Text(price)
-                    .anchoredStyle(.xpDigit)
-                    .foregroundStyle(AnchoredColors.parchment)
-                Text(period)
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.parchment.opacity(0.5))
-                if !isWeekly {
-                    Text("Save 42%")
-                        .anchoredStyle(.caption)
-                        .foregroundStyle(AnchoredColors.amber)
+                    Spacer(minLength: 40)
                 }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AnchoredColors.navy)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(
-                        isSelected ? AnchoredColors.amber : AnchoredColors.parchment.opacity(0.2),
-                        lineWidth: isSelected ? 2 : 1
-                    )
-            )
         }
-        .buttonStyle(.plain)
     }
 
-    // MARK: - Page 8: Sign In
+    // ────────────────────────────────────────────────────────────────
+    // MARK: - 09 Sign In
+    // ────────────────────────────────────────────────────────────────
 
     private var signInPage: some View {
-        VStack(spacing: 28) {
-            Spacer(minLength: 20)
-
-            ZStack {
-                Circle()
-                    .fill(AnchoredColors.amber.opacity(0.14))
-                    .frame(width: 140, height: 140)
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 56, weight: .light))
-                    .foregroundStyle(AnchoredColors.amber)
+        ZStack {
+            VStack(spacing: 0) {
+                BrandHeader(step: 6, total: totalSteps)
+                Spacer()
             }
 
-            VStack(spacing: 10) {
-                Text("Almost there")
-                    .anchoredStyle(.h1)
-                    .foregroundStyle(AnchoredColors.amber)
+            VStack(spacing: 24) {
+                // Avatar with glow
+                ZStack {
+                    Circle()
+                        .fill(AnchoredColors.gradientPrimary)
+                        .frame(width: 130, height: 130)
+                        .opacity(0.3)
+                        .blur(radius: 20)
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 102, height: 102)
+                        .overlay(
+                            Circle().stroke(AnchoredColors.line, lineWidth: 1)
+                        )
+                        .shadow(color: AnchoredColors.coral.opacity(0.3), radius: 15, x: 0, y: 12)
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 50))
+                        .foregroundStyle(AnchoredColors.coral)
+                }
+
+                VStack(spacing: 10) {
+                    VStack(spacing: 0) {
+                        Text("Almost ")
+                            .font(.custom("Newsreader", size: 32).weight(.regular))
+                            .tracking(-0.64)
+                        + Text("there.")
+                            .font(.custom("Newsreader", size: 32).weight(.regular).italic())
+                            .tracking(-0.64)
+                            .foregroundColor(AnchoredColors.coral)
+                    }
+                    .foregroundStyle(AnchoredColors.ink)
                     .multilineTextAlignment(.center)
-                Text("Create your account to save your progress across devices.")
-                    .anchoredStyle(.body)
-                    .foregroundStyle(AnchoredColors.parchment.opacity(0.7))
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+
+                    Text("Save your progress so it travels with you.")
+                        .font(.custom("Outfit", size: 14))
+                        .foregroundStyle(AnchoredColors.inkSoft)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 260)
+                }
             }
-            .screenPadding()
+            .padding(.horizontal, 32)
 
-            Spacer(minLength: 20)
+            // Bottom actions
+            VStack(spacing: 14) {
+                Spacer()
 
-            VStack(spacing: 12) {
                 SignInWithAppleButton(.continue) { request in
                     request.requestedScopes = [.fullName]
                 } onCompletion: { result in
@@ -878,30 +917,28 @@ struct OnboardingView: View {
                         break
                     }
                 }
-                .signInWithAppleButtonStyle(.white)
-                .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .signInWithAppleButtonStyle(.black)
+                .frame(maxWidth: .infinity, minHeight: 54, maxHeight: 54)
+                .clipShape(Capsule())
 
-                #if DEBUG
-                Button("Skip sign in (debug)") {
+                Button {
                     saveOnboardingAnswers(userId: "00000000-0000-0000-0000-000000000000")
                     authManager.completeSignIn(userId: "00000000-0000-0000-0000-000000000000", displayName: "Test User")
+                } label: {
+                    Text("Skip for now")
+                        .font(.custom("Outfit", size: 13))
+                        .foregroundStyle(AnchoredColors.inkMute)
                 }
-                .anchoredStyle(.caption)
-                .foregroundStyle(AnchoredColors.parchment.opacity(0.5))
-                #endif
-
-                Text("By continuing, you agree to our Terms and Privacy Policy.")
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.parchment.opacity(0.4))
-                    .multilineTextAlignment(.center)
+                .buttonStyle(.plain)
             }
-            .screenPadding()
-            .padding(.bottom, 24)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 34)
         }
     }
 
+    // ────────────────────────────────────────────────────────────────
     // MARK: - Helpers
+    // ────────────────────────────────────────────────────────────────
 
     private func ensureSettingsRow() -> UserSettings {
         if let existing = try? modelContext.fetch(FetchDescriptor<UserSettings>()).first {
@@ -928,52 +965,6 @@ struct OnboardingView: View {
             settings.bibleExperience = selectedExperience
         }
         try? modelContext.save()
-    }
-}
-
-// MARK: - ConfettiView
-
-private struct ConfettiView: View {
-    @State private var particles: [(x: CGFloat, y: CGFloat, color: Color, size: CGFloat, speed: CGFloat)] = []
-    @State private var timer: Timer?
-
-    var body: some View {
-        TimelineView(.animation) { _ in
-            Canvas { context, _ in
-                for p in particles {
-                    let rect = CGRect(x: p.x, y: p.y, width: p.size, height: p.size)
-                    context.fill(Path(ellipseIn: rect), with: .color(p.color))
-                }
-            }
-        }
-        .onAppear { startConfetti() }
-        .onDisappear { timer?.invalidate() }
-    }
-
-    private func startConfetti() {
-        let colors: [Color] = [
-            AnchoredColors.amber,
-            .yellow,
-            .orange,
-            .white,
-            AnchoredColors.amber.opacity(0.6)
-        ]
-        let screenWidth = UIScreen.main.bounds.width
-        particles = (0..<60).map { _ in
-            (
-                x: CGFloat.random(in: 0...screenWidth),
-                y: CGFloat.random(in: -200...(-20)),
-                color: colors.randomElement()!,
-                size: CGFloat.random(in: 4...8),
-                speed: CGFloat.random(in: 2...5)
-            )
-        }
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
-            for i in particles.indices {
-                particles[i].y += particles[i].speed
-                particles[i].x += CGFloat.random(in: -1...1)
-            }
-        }
     }
 }
 

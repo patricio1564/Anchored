@@ -1,67 +1,87 @@
-//
-//  AnchoredTypography.swift
-//  Anchored
-//
-//  Typography scale. SF Pro (system default) everywhere; scripture text
-//  is slightly larger and italic per the PRD. Use these as view modifiers:
-//
-//      Text("Welcome back").anchoredStyle(.h1)
-//      Text("For God so loved...").anchoredStyle(.scripture)
-//
-
 import SwiftUI
 
 enum AnchoredTextStyle {
-    case h1       // 28pt bold — page titles
-    case h2       // 20pt semibold — section headers
-    case h3       // 17pt semibold — card titles
-    case body     // 16pt regular
-    case bodyMd   // 16pt medium
-    case caption  // 13pt regular — metadata
-    case label    // 11pt semibold uppercase — "VERSE OF THE DAY" style
-    case scripture // 18pt italic — scripture text, slightly larger per PRD
-    case reference // 14pt semibold — "— John 3:16"
-    case xpDigit  // 32pt bold rounded — big stat numbers
+    case display      // 38 serif/400  line 1.05  tracking -.02em
+    case titleXL      // 32 serif/400  1.05       -.02em
+    case title        // 28 serif/400  1.10       -.02em
+    case titleCard    // 22 serif/500  1.20
+    case subtitleL    // 18 serif/500  1.30
+    case bodyL        // 17 serif/400
+    case body         // 14.5 sans/500
+    case bodyS        // 13 sans/500
+    case caption      // 12 sans/500  color ink-soft
+    case caps         // 11 sans/600  tracking .14em UPPER
+    case scripture    // 19 serif italic/400  line 1.4
+    case statNumber   // 24 serif/500  tabular-nums
+    case priceNumber  // 30 serif/500
+
+    // Legacy aliases for existing code
+    case h1
+    case h2
+    case h3
+    case bodyMd
+    case label
+    case reference
+    case xpDigit
 
     var font: Font {
         switch self {
-        case .h1:        return .system(size: 28, weight: .bold, design: .default)
-        case .h2:        return .system(size: 20, weight: .semibold, design: .default)
-        case .h3:        return .system(size: 17, weight: .semibold, design: .default)
-        case .body:      return .system(size: 16, weight: .regular, design: .default)
-        case .bodyMd:    return .system(size: 16, weight: .medium, design: .default)
-        case .caption:   return .system(size: 13, weight: .regular, design: .default)
-        case .label:     return .system(size: 11, weight: .semibold, design: .default)
-        case .scripture: return .system(size: 18, weight: .regular, design: .serif).italic()
-        case .reference: return .system(size: 14, weight: .semibold, design: .default)
-        case .xpDigit:   return .system(size: 32, weight: .bold, design: .rounded)
+        case .display:     return .custom("Newsreader", size: 38).weight(.regular)
+        case .titleXL:     return .custom("Newsreader", size: 32).weight(.regular)
+        case .title:       return .custom("Newsreader", size: 28).weight(.regular)
+        case .titleCard:   return .custom("Newsreader", size: 22).weight(.medium)
+        case .subtitleL:   return .custom("Newsreader", size: 18).weight(.medium)
+        case .bodyL:       return .custom("Newsreader", size: 17).weight(.regular)
+        case .body:        return .custom("Outfit", size: 14.5).weight(.medium)
+        case .bodyS:       return .custom("Outfit", size: 13).weight(.medium)
+        case .caption:     return .custom("Outfit", size: 12).weight(.medium)
+        case .caps:        return .custom("Outfit", size: 11).weight(.semibold)
+        case .scripture:   return .custom("Newsreader", size: 19).weight(.regular).italic()
+        case .statNumber:  return .custom("Newsreader", size: 24).weight(.medium)
+        case .priceNumber: return .custom("Newsreader", size: 30).weight(.medium)
+
+        case .h1:          return .custom("Newsreader", size: 28).weight(.regular)
+        case .h2:          return .custom("Newsreader", size: 22).weight(.medium)
+        case .h3:          return .custom("Newsreader", size: 18).weight(.medium)
+        case .bodyMd:      return .custom("Outfit", size: 14.5).weight(.semibold)
+        case .label:       return .custom("Outfit", size: 11).weight(.semibold)
+        case .reference:   return .custom("Outfit", size: 14).weight(.semibold)
+        case .xpDigit:     return .custom("Newsreader", size: 32).weight(.medium)
         }
     }
 
     var lineSpacing: CGFloat {
         switch self {
-        case .scripture: return 6
-        case .body, .bodyMd: return 3
-        default: return 2
+        case .display, .titleXL:   return 0
+        case .title:               return 2
+        case .titleCard:           return 4
+        case .subtitleL:           return 5
+        case .bodyL:               return 4
+        case .body, .bodyS:        return 3
+        case .scripture:           return 7
+        case .caption:             return 2
+        default:                   return 2
         }
     }
 
     var tracking: CGFloat {
         switch self {
-        case .label: return 1.2
-        default:     return 0
+        case .display, .titleXL, .title, .h1:
+            return -0.76
+        case .caps, .label:
+            return 1.54
+        default:
+            return 0
         }
     }
 
     var textCase: Text.Case? {
         switch self {
-        case .label: return .uppercase
-        default:     return nil
+        case .caps, .label: return .uppercase
+        default:            return nil
         }
     }
 }
-
-// MARK: - View Modifier
 
 struct AnchoredStyleModifier: ViewModifier {
     let style: AnchoredTextStyle
@@ -76,7 +96,6 @@ struct AnchoredStyleModifier: ViewModifier {
 }
 
 extension View {
-    /// Apply an Anchored typography style.
     func anchoredStyle(_ style: AnchoredTextStyle) -> some View {
         modifier(AnchoredStyleModifier(style: style))
     }

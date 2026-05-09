@@ -1,13 +1,3 @@
-//
-//  JournalView.swift
-//  Anchored
-//
-//  The "Journal" tab. Two segments:
-//  - Scripture: merged list of SavedVerses (with optional notes/highlights)
-//    and BibleNotes created from the Bible reading flow, sorted by date.
-//  - Prayers: Prayer entries, composable from scratch here.
-//
-
 import SwiftUI
 import SwiftData
 
@@ -16,6 +6,7 @@ struct JournalView: View {
     enum Segment: String, CaseIterable, Identifiable {
         case scripture = "Scripture"
         case prayers = "Prayers"
+        case notes = "Notes"
         var id: String { rawValue }
     }
 
@@ -30,7 +21,6 @@ struct JournalView: View {
     @State private var isComposingPrayer = false
     @State private var selectedVerse: SavedVerse?
 
-    // Unified scripture item — merges SavedVerse and BibleNote sorted by date.
     private enum ScriptureItem: Identifiable {
         case verse(SavedVerse)
         case note(BibleNote)
@@ -58,21 +48,32 @@ struct JournalView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Segment", selection: $segment) {
-                ForEach(Segment.allCases) { s in
-                    Text(s.rawValue).tag(s)
-                }
+            // Header
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Your")
+                    .font(.custom("Newsreader", size: 13).weight(.regular).italic())
+                    .foregroundStyle(AnchoredColors.inkSoft)
+                Text("Journal")
+                    .font(.custom("Newsreader", size: 36).weight(.regular))
+                    .tracking(-0.72)
+                    .foregroundStyle(AnchoredColors.ink)
             }
-            .pickerStyle(.segmented)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .screenPadding()
-            .padding(.top, 8)
-            .padding(.bottom, 12)
+            .padding(.top, 58)
+            .padding(.bottom, 18)
+
+            // Segmented tabs
+            segmentedTabs
+                .screenPadding()
+                .padding(.bottom, 18)
 
             content
         }
-        .background(AnchoredColors.parchment.ignoresSafeArea())
-        .navigationTitle("Journal")
-        .navigationBarTitleDisplayMode(.large)
+        .appBackground()
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             if segment == .prayers {
                 ToolbarItem(placement: .primaryAction) {
@@ -80,6 +81,7 @@ struct JournalView: View {
                         isComposingPrayer = true
                     } label: {
                         Image(systemName: "square.and.pencil")
+                            .foregroundStyle(AnchoredColors.ink)
                     }
                     .accessibilityLabel("New prayer")
                 }
@@ -95,6 +97,51 @@ struct JournalView: View {
         }
     }
 
+    // MARK: - Segmented tabs
+
+    private var segmentedTabs: some View {
+        HStack(spacing: 6) {
+            ForEach(Segment.allCases) { seg in
+                let isActive = seg == segment
+                Button {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        segment = seg
+                    }
+                } label: {
+                    Text(seg.rawValue)
+                        .font(.custom("Outfit", size: 13).weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            Group {
+                                if isActive {
+                                    AnchoredColors.gradientPrimary
+                                } else {
+                                    Color.clear
+                                }
+                            }
+                        )
+                        .clipShape(Capsule())
+                        .foregroundStyle(isActive ? .white : AnchoredColors.inkSoft)
+                        .shadow(
+                            color: isActive ? AnchoredColors.coral.opacity(0.3) : .clear,
+                            radius: 6, x: 0, y: 4
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(5)
+        .background(
+            Capsule()
+                .fill(Color.white.opacity(0.6))
+                .background(.ultraThinMaterial, in: Capsule())
+        )
+        .overlay(
+            Capsule().stroke(AnchoredColors.line, lineWidth: 1)
+        )
+    }
+
     // MARK: - Segmented content
 
     @ViewBuilder
@@ -102,12 +149,13 @@ struct JournalView: View {
         switch segment {
         case .scripture: scriptureList
         case .prayers:   prayersList
+        case .notes:     notesList
         }
     }
 
     private var scriptureList: some View {
         Group {
-            if scriptureItems.isEmpty {
+            if verses.isEmpty {
                 emptyState(
                     icon: "book.closed.fill",
                     title: "No scripture yet",
@@ -115,17 +163,12 @@ struct JournalView: View {
                 )
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 10) {
-                        ForEach(scriptureItems) { item in
-                            switch item {
-                            case .verse(let v):
-                                Button { selectedVerse = v } label: {
-                                    savedVerseCard(v)
-                                }
-                                .buttonStyle(.plain)
-                            case .note(let n):
-                                noteCard(n)
+                    LazyVStack(spacing: 12) {
+                        ForEach(verses) { v in
+                            Button { selectedVerse = v } label: {
+                                savedVerseCard(v)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.top, 4)
@@ -146,9 +189,32 @@ struct JournalView: View {
                 )
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 10) {
+                    LazyVStack(spacing: 12) {
                         ForEach(prayers) { prayer in
                             prayerCard(prayer)
+                        }
+                    }
+                    .padding(.top, 4)
+                    .padding(.bottom, 24)
+                    .screenPadding()
+                }
+            }
+        }
+    }
+
+    private var notesList: some View {
+        Group {
+            if notes.isEmpty {
+                emptyState(
+                    icon: "note.text",
+                    title: "No notes yet",
+                    message: "Add notes while reading in the Bible tab."
+                )
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(notes) { n in
+                            noteCard(n)
                         }
                     }
                     .padding(.top, 4)
@@ -162,45 +228,46 @@ struct JournalView: View {
     // MARK: - Cards
 
     private func savedVerseCard(_ verse: SavedVerse) -> some View {
-        let highlight = verse.highlightColor.flatMap { HighlightColor(rawValue: $0) }
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(verse.reference)
-                    .anchoredStyle(.reference)
-                    .foregroundStyle(AnchoredColors.amber)
-                Spacer()
-                Text(verse.translation.uppercased())
-                    .anchoredStyle(.label)
-                    .foregroundStyle(AnchoredColors.muted)
+        HStack(spacing: 0) {
+            // Left accent bar
+            RoundedRectangle(cornerRadius: 2)
+                .fill(AnchoredColors.gradientPrimary)
+                .frame(width: 3)
+                .padding(.vertical, 24)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(verse.reference.uppercased())
+                        .font(.custom("Outfit", size: 13).weight(.semibold))
+                        .tracking(0.26)
+                        .foregroundStyle(AnchoredColors.coral)
+                    Spacer()
+                    Text(verse.translation.uppercased())
+                        .font(.custom("Outfit", size: 10).weight(.semibold))
+                        .tracking(0.8)
+                        .foregroundStyle(AnchoredColors.inkMute)
+                }
+
+                Text(verse.text)
+                    .font(.custom("Newsreader", size: 17).weight(.regular).italic())
+                    .lineSpacing(5)
+                    .foregroundStyle(AnchoredColors.ink)
+
+                if let note = verse.note, !note.isEmpty {
+                    Text(note)
+                        .font(.custom("Outfit", size: 12.5).weight(.medium))
+                        .foregroundStyle(AnchoredColors.inkSoft)
+                        .lineLimit(2)
+                }
             }
-            Text(verse.text)
-                .anchoredStyle(.scripture)
-                .foregroundStyle(AnchoredColors.navy)
-            if let note = verse.note, !note.isEmpty {
-                Text(note)
-                    .anchoredStyle(.body)
-                    .foregroundStyle(AnchoredColors.navy.opacity(0.75))
-                    .italic()
-                    .lineLimit(2)
-            }
+            .padding(22)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(
-            highlight.map { $0.color.opacity(0.12) } ?? AnchoredColors.card
-        )
-        .overlay(alignment: .leading) {
-            if let highlight {
-                Rectangle()
-                    .fill(highlight.color)
-                    .frame(width: 4)
-                    .clipShape(RoundedRectangle(cornerRadius: 2))
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(AnchoredColors.glassStrong)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(highlight.map { $0.color.opacity(0.3) } ?? AnchoredColors.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AnchoredColors.line, lineWidth: 1)
         )
         .contextMenu {
             Button(role: .destructive) {
@@ -212,27 +279,49 @@ struct JournalView: View {
     }
 
     private func noteCard(_ note: BibleNote) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(note.reference)
-                    .anchoredStyle(.reference)
-                    .foregroundStyle(AnchoredColors.amber)
-                Spacer()
-                Text(note.updatedAt.formatted(date: .abbreviated, time: .omitted))
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.muted)
+        HStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(
+                    LinearGradient(
+                        colors: [AnchoredColors.lilac, AnchoredColors.blue],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 3)
+                .padding(.vertical, 24)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(note.reference.uppercased())
+                        .font(.custom("Outfit", size: 13).weight(.semibold))
+                        .tracking(0.26)
+                        .foregroundStyle(AnchoredColors.lilac)
+                    Spacer()
+                    Text(note.updatedAt.formatted(date: .abbreviated, time: .omitted))
+                        .font(.custom("Outfit", size: 10).weight(.semibold))
+                        .foregroundStyle(AnchoredColors.inkMute)
+                }
+                Text(note.verseText)
+                    .font(.custom("Newsreader", size: 16).weight(.regular).italic())
+                    .lineSpacing(5)
+                    .foregroundStyle(AnchoredColors.ink)
+                    .lineLimit(2)
+                Text(note.note)
+                    .font(.custom("Outfit", size: 13).weight(.medium))
+                    .foregroundStyle(AnchoredColors.ink)
+                    .lineLimit(3)
             }
-            Text(note.verseText)
-                .anchoredStyle(.scripture)
-                .foregroundStyle(AnchoredColors.navy.opacity(0.85))
-                .lineLimit(2)
-            Text(note.note)
-                .anchoredStyle(.body)
-                .foregroundStyle(AnchoredColors.navy)
-                .lineLimit(3)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 18)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface()
+        .background(AnchoredColors.glassStrong)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(AnchoredColors.line, lineWidth: 1)
+        )
         .contextMenu {
             Button(role: .destructive) {
                 delete(note)
@@ -248,24 +337,24 @@ struct JournalView: View {
                 statusChip(for: prayer.status)
                 Spacer()
                 Text(prayer.updatedAt.formatted(date: .abbreviated, time: .omitted))
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.muted)
+                    .font(.custom("Outfit", size: 10).weight(.semibold))
+                    .foregroundStyle(AnchoredColors.inkMute)
             }
             Text(prayer.title)
-                .anchoredStyle(.h3)
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Newsreader", size: 18).weight(.medium))
+                .foregroundStyle(AnchoredColors.ink)
             Text(prayer.content)
-                .anchoredStyle(.body)
-                .foregroundStyle(AnchoredColors.navy.opacity(0.85))
+                .font(.custom("Outfit", size: 13).weight(.medium))
+                .foregroundStyle(AnchoredColors.inkSoft)
                 .lineLimit(3)
             if let linked = prayer.linkedVerse, !linked.isEmpty {
                 Text("— \(linked)")
-                    .anchoredStyle(.reference)
-                    .foregroundStyle(AnchoredColors.amber)
+                    .font(.custom("Outfit", size: 13).weight(.semibold))
+                    .foregroundStyle(AnchoredColors.coral)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface()
+        .glassCard(padding: 20, cornerRadius: 22)
         .contextMenu {
             if prayer.status == .active {
                 Button {
@@ -284,12 +373,13 @@ struct JournalView: View {
 
     private func statusChip(for status: PrayerStatus) -> some View {
         let color: Color = switch status {
-        case .active:   AnchoredColors.amber
+        case .active:   AnchoredColors.coral
         case .answered: AnchoredColors.success
-        case .archived: AnchoredColors.muted
+        case .archived: AnchoredColors.inkMute
         }
-        return Text(status.displayName)
-            .anchoredStyle(.label)
+        return Text(status.displayName.uppercased())
+            .font(.custom("Outfit", size: 11).weight(.semibold))
+            .tracking(0.44)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
             .background(color.opacity(0.15))
@@ -304,13 +394,13 @@ struct JournalView: View {
             Spacer()
             Image(systemName: icon)
                 .font(.system(size: 44))
-                .foregroundStyle(AnchoredColors.amber)
+                .foregroundStyle(AnchoredColors.coral)
             Text(title)
-                .anchoredStyle(.h2)
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Newsreader", size: 22).weight(.medium))
+                .foregroundStyle(AnchoredColors.ink)
             Text(message)
-                .anchoredStyle(.body)
-                .foregroundStyle(AnchoredColors.muted)
+                .font(.custom("Outfit", size: 14.5).weight(.medium))
+                .foregroundStyle(AnchoredColors.inkSoft)
                 .multilineTextAlignment(.center)
             Spacer()
         }
@@ -372,26 +462,26 @@ private struct SavedVerseDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AnchoredColors.parchment.ignoresSafeArea()
+                AnchoredColors.backgroundGradient.ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        // Verse card
                         VStack(alignment: .leading, spacing: 6) {
                             Text(verse.reference)
-                                .anchoredStyle(.reference)
-                                .foregroundStyle(AnchoredColors.amber)
+                                .font(.custom("Outfit", size: 13).weight(.semibold))
+                                .foregroundStyle(AnchoredColors.coral)
                             Text(verse.text)
-                                .anchoredStyle(.scripture)
-                                .foregroundStyle(AnchoredColors.navy)
+                                .font(.custom("Newsreader", size: 19).weight(.regular).italic())
+                                .lineSpacing(7)
+                                .foregroundStyle(AnchoredColors.ink)
                         }
                         .amberCard()
 
-                        // Highlight picker
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Highlight color")
-                                .anchoredStyle(.label)
-                                .foregroundStyle(AnchoredColors.muted)
+                            Text("HIGHLIGHT COLOR")
+                                .font(.custom("Outfit", size: 11).weight(.semibold))
+                                .tracking(0.44)
+                                .foregroundStyle(AnchoredColors.inkSoft)
                             HStack(spacing: 14) {
                                 ForEach(HighlightColor.allCases) { hc in
                                     Button {
@@ -402,50 +492,50 @@ private struct SavedVerseDetailSheet: View {
                                             .frame(width: 34, height: 34)
                                             .overlay(
                                                 Circle()
-                                                    .stroke(selectedColor == hc ? AnchoredColors.navy : Color.clear, lineWidth: 2.5)
+                                                    .stroke(selectedColor == hc ? AnchoredColors.ink : Color.clear, lineWidth: 2.5)
                                                     .padding(-3)
                                             )
                                             .shadow(color: hc.color.opacity(0.35), radius: 3)
                                     }
                                     .buttonStyle(.plain)
                                 }
-                                // Clear/no highlight
                                 Button {
                                     selectedColor = nil
                                 } label: {
                                     ZStack {
                                         Circle()
-                                            .stroke(selectedColor == nil ? AnchoredColors.navy : AnchoredColors.border, lineWidth: selectedColor == nil ? 2.5 : 1.5)
+                                            .stroke(selectedColor == nil ? AnchoredColors.ink : AnchoredColors.line, lineWidth: selectedColor == nil ? 2.5 : 1.5)
                                             .frame(width: 34, height: 34)
                                         Image(systemName: "xmark")
                                             .font(.system(size: 12, weight: .semibold))
-                                            .foregroundStyle(AnchoredColors.muted)
+                                            .foregroundStyle(AnchoredColors.inkMute)
                                     }
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
 
-                        // Note editor
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Note")
-                                .anchoredStyle(.label)
-                                .foregroundStyle(AnchoredColors.muted)
+                            Text("NOTE")
+                                .font(.custom("Outfit", size: 11).weight(.semibold))
+                                .tracking(0.44)
+                                .foregroundStyle(AnchoredColors.inkSoft)
                             ZStack(alignment: .topLeading) {
                                 TextEditor(text: $noteText)
                                     .scrollContentBackground(.hidden)
+                                    .font(.custom("Outfit", size: 14.5).weight(.medium))
                                     .padding(8)
                                     .frame(minHeight: 160)
-                                    .background(AnchoredColors.card)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .background(AnchoredColors.glass)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .stroke(AnchoredColors.border, lineWidth: 1)
+                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            .stroke(AnchoredColors.line, lineWidth: 1)
                                     )
                                 if noteText.isEmpty {
                                     Text("What does this verse mean to you?")
-                                        .anchoredStyle(.body)
-                                        .foregroundStyle(AnchoredColors.muted)
+                                        .font(.custom("Outfit", size: 14.5).weight(.medium))
+                                        .foregroundStyle(AnchoredColors.inkMute)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 14)
                                         .allowsHitTesting(false)
@@ -498,19 +588,17 @@ private struct PrayerComposeSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AnchoredColors.parchment.ignoresSafeArea()
+                AnchoredColors.backgroundGradient.ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
                         field(title: "Title", text: $title, placeholder: "What are you praying for?")
-
                         editor(
                             title: "Prayer",
                             text: $prayerBody,
-                            placeholder: "Write your prayer…",
+                            placeholder: "Write your prayer\u{2026}",
                             minHeight: 160
                         )
-
                         field(
                             title: "Anchored verse (optional)",
                             text: $linkedVerse,
@@ -540,41 +628,47 @@ private struct PrayerComposeSheet: View {
 
     private func field(title: String, text: Binding<String>, placeholder: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .anchoredStyle(.label)
-                .foregroundStyle(AnchoredColors.muted)
+            Text(title.uppercased())
+                .font(.custom("Outfit", size: 11).weight(.semibold))
+                .tracking(0.44)
+                .foregroundStyle(AnchoredColors.inkSoft)
             TextField(placeholder, text: text)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(AnchoredColors.card)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .font(.custom("Outfit", size: 14.5).weight(.medium))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(AnchoredColors.glass)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(AnchoredColors.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(AnchoredColors.line, lineWidth: 1)
                 )
         }
     }
 
     private func editor(title: String, text: Binding<String>, placeholder: String, minHeight: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .anchoredStyle(.label)
-                .foregroundStyle(AnchoredColors.muted)
+            Text(title.uppercased())
+                .font(.custom("Outfit", size: 11).weight(.semibold))
+                .tracking(0.44)
+                .foregroundStyle(AnchoredColors.inkSoft)
             ZStack(alignment: .topLeading) {
                 TextEditor(text: text)
                     .scrollContentBackground(.hidden)
+                    .font(.custom("Outfit", size: 14.5).weight(.medium))
                     .padding(8)
                     .frame(minHeight: minHeight)
-                    .background(AnchoredColors.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(AnchoredColors.glass)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(AnchoredColors.border, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(AnchoredColors.line, lineWidth: 1)
                     )
                 if text.wrappedValue.isEmpty {
                     Text(placeholder)
-                        .anchoredStyle(.body)
-                        .foregroundStyle(AnchoredColors.muted)
+                        .font(.custom("Outfit", size: 14.5).weight(.medium))
+                        .foregroundStyle(AnchoredColors.inkMute)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 14)
                         .allowsHitTesting(false)

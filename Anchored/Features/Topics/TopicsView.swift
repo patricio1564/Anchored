@@ -1,28 +1,3 @@
-//
-//  TopicsView.swift
-//  Anchored
-//
-//  The "Learn" tab. Vertical list of all 35 topics as gradient cards
-//  with progress toward completion. Free topics are tappable; premium
-//  topics show a lock and present the paywall when tapped.
-//
-//  ───── Layout notes ─────
-//  • Each topic card uses the topic's own `TopicGradient` for the icon
-//    tile — this gives the list visual variety without needing per-topic
-//    asset catalogs.
-//  • Progress is computed once per appear, from a single SwiftData fetch
-//    over LessonProgress. No per-card query.
-//  • Premium gating is a soft gate: tapping a locked topic flips the
-//    paywall modal, it doesn't navigate. The navigation link is wrapped
-//    in a Button when locked so we control the action.
-//
-//  ───── Navigation ─────
-//  Two destinations are registered on this stack:
-//    • Topic              → TopicDetailView (lesson list)
-//    • LessonDestination  → LessonView      (teaching + quiz + results)
-//  TopicDetailView pushes LessonDestination values internally.
-//
-
 import SwiftUI
 import SwiftData
 
@@ -30,25 +5,36 @@ struct TopicsView: View {
 
     @EnvironmentObject private var premiumManager: PremiumManager
 
-    /// Live query of every lesson progress row. Drives the progress
-    /// rings on each topic card.
     @Query(sort: \LessonProgress.completedAt, order: .reverse)
     private var progressRows: [LessonProgress]
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 10) {
+                // Header
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Walk through")
+                        .font(.custom("Newsreader", size: 13).weight(.regular).italic())
+                        .foregroundStyle(AnchoredColors.inkSoft)
+                    Text("Scripture")
+                        .font(.custom("Newsreader", size: 36).weight(.regular))
+                        .tracking(-0.72)
+                        .foregroundStyle(AnchoredColors.ink)
+                }
+                .padding(.bottom, 8)
+
                 ForEach(TopicsCatalog.all) { topic in
-                    topicCard(for: topic)
+                    topicRow(for: topic)
                 }
             }
-            .padding(.top, 8)
+            .padding(.top, 58)
             .padding(.bottom, 24)
             .screenPadding()
         }
-        .background(AnchoredColors.parchment.ignoresSafeArea())
-        .navigationTitle("Learn")
-        .navigationBarTitleDisplayMode(.large)
+        .appBackground()
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .sheet(isPresented: $premiumManager.isShowingPaywall) {
             PaywallSheet()
         }
@@ -60,86 +46,109 @@ struct TopicsView: View {
         }
     }
 
-    // MARK: - Cards
+    // MARK: - Topic Row
 
     @ViewBuilder
-    private func topicCard(for topic: Topic) -> some View {
+    private func topicRow(for topic: Topic) -> some View {
         let completed = completedCount(for: topic)
         let total = topic.lessons.count
         let isAccessible = topic.isFree || premiumManager.isPremium
 
         if isAccessible {
             NavigationLink(value: topic) {
-                cardBody(topic: topic, completed: completed, total: total, locked: false)
+                rowBody(topic: topic, completed: completed, total: total, locked: false)
             }
             .buttonStyle(.plain)
         } else {
             Button {
                 premiumManager.presentPaywall()
             } label: {
-                cardBody(topic: topic, completed: completed, total: total, locked: true)
+                rowBody(topic: topic, completed: completed, total: total, locked: true)
             }
             .buttonStyle(.plain)
         }
     }
 
-    /// The inner card layout, shared by both free and locked variants.
-    private func cardBody(topic: Topic, completed: Int, total: Int, locked: Bool) -> some View {
-        HStack(spacing: 14) {
-            // Icon tile with the topic's gradient.
+    private func rowBody(topic: Topic, completed: Int, total: Int, locked: Bool) -> some View {
+        let accentColors = topicAccentColors(for: topic)
+        let c1 = accentColors.0
+
+        return HStack(spacing: 14) {
+            // Glyph icon tile — white bg, accent border, first letter serif italic
             ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(topic.gradient.linearGradient)
-                Text(topic.icon)
-                    .font(.system(size: 28))
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.white)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(c1.opacity(0.33), lineWidth: 1)
+                Text(String(topic.title.prefix(1)))
+                    .font(.custom("Newsreader", size: 24).weight(.medium).italic())
+                    .foregroundStyle(c1)
             }
-            .frame(width: 56, height: 56)
+            .frame(width: 54, height: 54)
+            .shadow(color: c1.opacity(0.15), radius: 6, x: 0, y: 4)
             .opacity(locked ? 0.55 : 1.0)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(topic.title)
-                    .anchoredStyle(.h3)
-                    .foregroundStyle(AnchoredColors.navy)
+                    .font(.custom("Newsreader", size: 17).weight(.medium))
+                    .foregroundStyle(AnchoredColors.ink)
                 Text(topic.description)
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.muted)
-                    .lineLimit(2)
+                    .font(.custom("Outfit", size: 12).weight(.medium))
+                    .foregroundStyle(AnchoredColors.inkSoft)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
-                // Progress line — hidden when locked to reduce clutter
-                // (locked topics can't have any progress anyway).
                 if !locked {
-                    progressLine(completed: completed, total: total)
-                        .padding(.top, 4)
+                    HStack(spacing: 8) {
+                        // Progress mini-bar
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule()
+                                    .fill(AnchoredColors.lineSoft)
+                                    .frame(height: 4)
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [accentColors.0, accentColors.1],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(
+                                        width: total > 0 ? geo.size.width * CGFloat(completed) / CGFloat(total) : 0,
+                                        height: 4
+                                    )
+                            }
+                        }
+                        .frame(height: 4)
+
+                        Text("\(completed)/\(total)")
+                            .font(.custom("Outfit", size: 11).weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(AnchoredColors.inkSoft)
+                    }
+                    .padding(.top, 6)
                 }
             }
 
             Spacer(minLength: 0)
 
-            // Lock icon for premium-gated topics, chevron otherwise.
             Image(systemName: locked ? "lock.fill" : "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(locked ? AnchoredColors.amber : AnchoredColors.muted)
+                .font(.system(size: 14))
+                .foregroundStyle(locked ? AnchoredColors.coral : AnchoredColors.inkMute)
         }
-        .cardSurface(padding: 14)
+        .glassCard(padding: 14, cornerRadius: 20)
     }
 
-    private func progressLine(completed: Int, total: Int) -> some View {
-        HStack(spacing: 8) {
-            // A thin progress bar with the lesson count beside it.
-            ProgressView(value: Double(completed), total: Double(max(total, 1)))
-                .progressViewStyle(.linear)
-                .tint(AnchoredColors.amber)
-                .frame(maxWidth: 120)
-            Text("\(completed) / \(total)")
-                .anchoredStyle(.caption)
-                .foregroundStyle(AnchoredColors.muted)
-        }
+    // MARK: - Topic accent colors
+
+    private func topicAccentColors(for topic: Topic) -> (Color, Color) {
+        let stops = topic.gradient.hexStops
+        return (Color(hex: stops.start), Color(hex: stops.end))
     }
 
     // MARK: - Progress aggregation
 
-    /// Count of completed lessons within a topic. O(n) per topic but
-    /// n is small (≤176 total rows even if the user completes everything).
     private func completedCount(for topic: Topic) -> Int {
         let completedIDs = Set(progressRows.filter(\.completed).map(\.lessonId))
         return topic.lessons.reduce(0) { count, lesson in
@@ -150,34 +159,30 @@ struct TopicsView: View {
 
 // MARK: - Paywall placeholder
 
-/// "Coming Soon" modal. StoreKit 2 products wire up in a later pass —
-/// this sheet is what the PRD's IAP stub gate presents today.
 struct PaywallSheet: View {
     @EnvironmentObject private var premiumManager: PremiumManager
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
-            AnchoredColors.parchment.ignoresSafeArea()
+            AnchoredColors.backgroundGradient.ignoresSafeArea()
 
             VStack(spacing: 24) {
-                // Header
                 VStack(spacing: 12) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 44))
-                        .foregroundStyle(AnchoredColors.amber)
+                        .foregroundStyle(AnchoredColors.coral)
 
                     Text("Anchored Premium")
-                        .anchoredStyle(.h1)
-                        .foregroundStyle(AnchoredColors.navy)
+                        .font(.custom("Newsreader", size: 28).weight(.regular))
+                        .foregroundStyle(AnchoredColors.ink)
 
                     Text("Unlock all 35 topics, 176 lessons, every translation, and the Verse Recommender.")
-                        .anchoredStyle(.body)
-                        .foregroundStyle(AnchoredColors.muted)
+                        .font(.custom("Outfit", size: 14.5).weight(.medium))
+                        .foregroundStyle(AnchoredColors.inkSoft)
                         .multilineTextAlignment(.center)
                 }
 
-                // Feature list
                 VStack(alignment: .leading, spacing: 12) {
                     featureRow("34 premium topics")
                     featureRow("5 Bible translations")
@@ -186,15 +191,13 @@ struct PaywallSheet: View {
                 }
                 .padding(.vertical, 4)
 
-                // Error message
                 if case .failed(let message) = premiumManager.purchaseState {
                     Text(message)
-                        .anchoredStyle(.caption)
+                        .font(.custom("Outfit", size: 12).weight(.medium))
                         .foregroundStyle(AnchoredColors.error)
                         .multilineTextAlignment(.center)
                 }
 
-                // Purchase button
                 Button {
                     Task { await premiumManager.purchase() }
                 } label: {
@@ -209,27 +212,27 @@ struct PaywallSheet: View {
                                         .opacity(0.8)
                                 }
                             }
-                            .anchoredStyle(.bodyMd)
+                            .font(.custom("Outfit", size: 15.5).weight(.semibold))
                         }
                     }
                     .frame(maxWidth: .infinity, minHeight: 52)
-                    .background(AnchoredColors.navy)
+                    .background(AnchoredColors.gradientPrimary)
                     .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(Capsule())
+                    .shadow(color: AnchoredColors.coral.opacity(0.4), radius: 15, x: 0, y: 12)
                 }
                 .disabled(premiumManager.purchaseState == .purchasing || premiumManager.product == nil)
 
-                // Secondary actions
                 VStack(spacing: 8) {
                     Button("Restore purchases") {
                         Task { await premiumManager.restorePurchases() }
                     }
-                    .foregroundStyle(AnchoredColors.amber)
-                    .anchoredStyle(.bodyMd)
+                    .font(.custom("Outfit", size: 14.5).weight(.semibold))
+                    .foregroundStyle(AnchoredColors.coral)
 
                     Button("Maybe later") { dismiss() }
-                        .foregroundStyle(AnchoredColors.muted)
-                        .anchoredStyle(.caption)
+                        .font(.custom("Outfit", size: 12).weight(.medium))
+                        .foregroundStyle(AnchoredColors.inkSoft)
                 }
             }
             .padding(24)
@@ -240,10 +243,10 @@ struct PaywallSheet: View {
     private func featureRow(_ text: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(AnchoredColors.amber)
+                .foregroundStyle(AnchoredColors.coral)
             Text(text)
-                .anchoredStyle(.body)
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Outfit", size: 14.5).weight(.medium))
+                .foregroundStyle(AnchoredColors.ink)
         }
     }
 }

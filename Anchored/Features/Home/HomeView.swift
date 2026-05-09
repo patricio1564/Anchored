@@ -1,27 +1,3 @@
-//
-//  HomeView.swift
-//  Anchored
-//
-//  The landing tab. Greeting + streak badge at the top, the Daily Verse
-//  card, a 3-stat row (streak / XP / lessons), and a "Continue Your
-//  Journey" card that deep-links into the next lesson.
-//
-//  ───── Architecture notes ─────
-//  • StreakManager is constructed once in `.task` and held in @State so
-//    it survives tab-switches without re-creating. The manager itself
-//    is @Observable, so SwiftUI re-renders when its mirrored properties
-//    change (see StreakManager.swift for the full "mirror" explanation).
-//
-//  • Daily verse loads via BibleAPIService on first appearance. If the
-//    fetch fails we fall through to the curated WEB text from
-//    DailyVerses — which means offline and API-outage days still show
-//    something, they just show the hardcoded translation.
-//
-//  • Check-in happens exactly once per launch per day. The manager's
-//    `checkIn()` is idempotent within a calendar day, so calling on
-//    every appear is safe, but we only do it in `.task` for clarity.
-//
-
 import SwiftUI
 import SwiftData
 
@@ -34,39 +10,25 @@ struct HomeView: View {
 
     // MARK: - Local state
 
-    /// Streak manager. Built in `.task` because we need modelContext.
     @State private var streak: StreakManager?
-
-    /// The daily verse reference (stable) + its text for the current
-    /// translation. Starts with the curated WEB text and swaps to the
-    /// API response once it loads.
     @State private var dailyVerse: DailyVerse = DailyVerses.today()
-
-    /// Loaded translation text. Nil means "show curated DailyVerse.text
-    /// as-is" (no network hit yet, or the fetch failed).
     @State private var remoteVerseText: String?
-
-    /// Count of completed lessons — used in the stats row. Queried
-    /// once per appearance.
     @State private var completedLessonsCount: Int = 0
-
-    /// Continue-your-journey target: the first topic with any incomplete
-    /// lessons, or the first topic overall if everything's done/empty.
     @State private var continueTopic: Topic?
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 16) {
                 header
-                dailyVerseCard
+                heroVerseCard
                 statsRow
-                continueJourneyCard
+                progressCard
                 Spacer(minLength: 40)
             }
-            .padding(.top, 8)
+            .padding(.top, 58)
             .screenPadding()
         }
-        .background(AnchoredColors.parchment.ignoresSafeArea())
+        .appBackground()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -75,115 +37,171 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Header
 
-    /// Greeting with the user's name (from AuthManager state) and a flame
-    /// badge if their streak is active.
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(greeting)
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.muted)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(greeting),")
+                    .font(.custom("Newsreader", size: 13).weight(.regular).italic())
+                    .foregroundStyle(AnchoredColors.inkSoft)
                 Text(displayName)
-                    .anchoredStyle(.h1)
-                    .foregroundStyle(AnchoredColors.navy)
+                    .font(.custom("Newsreader", size: 30).weight(.regular))
+                    .tracking(-0.6)
+                    .foregroundStyle(AnchoredColors.ink)
             }
             Spacer()
             if let streak, streak.currentStreak > 0 {
                 streakBadge(days: streak.currentStreak)
             }
         }
+        .padding(.bottom, 6)
     }
 
-    /// The Daily Verse card — amber-tinted, large italic scripture with
-    /// reference. Updates text when the remote fetch lands.
-    private var dailyVerseCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
+    // MARK: - Hero Verse Card
+
+    private var heroVerseCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
                 Image(systemName: "sun.max.fill")
-                    .foregroundStyle(AnchoredColors.amber)
-                Text("Verse of the Day")
-                    .anchoredStyle(.label)
-                    .foregroundStyle(AnchoredColors.amber)
+                    .font(.system(size: 14))
+                    .foregroundStyle(AnchoredColors.coral)
+                Text("VERSE OF THE DAY")
+                    .font(.custom("Outfit", size: 11).weight(.semibold))
+                    .tracking(0.44)
+                    .textCase(.uppercase)
+                    .foregroundStyle(AnchoredColors.coral)
             }
 
             Text(remoteVerseText ?? dailyVerse.text)
-                .anchoredStyle(.scripture)
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Newsreader", size: 19).weight(.regular).italic())
+                .lineSpacing(7)
+                .foregroundStyle(AnchoredColors.ink)
 
-            Text("— \(dailyVerse.reference)")
-                .anchoredStyle(.reference)
-                .foregroundStyle(AnchoredColors.navy.opacity(0.75))
+            Text("— \(dailyVerse.reference.uppercased())")
+                .font(.custom("Outfit", size: 12).weight(.semibold))
+                .tracking(0.48)
+                .foregroundStyle(AnchoredColors.coral)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .amberCard()
+        .padding(22)
+        .background(
+            ZStack {
+                LinearGradient(
+                    colors: [Color.white.opacity(0.9), AnchoredColors.coralSoft.opacity(0.5)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                // Decorative sun glow top-right
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [AnchoredColors.gold.opacity(0.5), .clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 50
+                        )
+                    )
+                    .frame(width: 100, height: 100)
+                    .offset(x: 60, y: -50)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(AnchoredColors.coralSoft, lineWidth: 1)
+        )
     }
 
-    /// Three compact stat tiles side-by-side: streak, XP, completed.
+    // MARK: - Stats Row (3-up grid)
+
     private var statsRow: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             statTile(
                 icon: "flame.fill",
-                tint: AnchoredColors.streak,
+                tint: AnchoredColors.coral,
                 value: "\(streak?.currentStreak ?? 0)",
-                label: "Day streak"
+                label: "Streak"
             )
             statTile(
                 icon: "star.fill",
-                tint: AnchoredColors.amber,
+                tint: AnchoredColors.gold,
                 value: "\(streak?.totalXP ?? 0)",
                 label: "Total XP"
             )
             statTile(
                 icon: "book.fill",
-                tint: AnchoredColors.navy,
+                tint: AnchoredColors.blue,
                 value: "\(completedLessonsCount)",
                 label: "Lessons"
             )
         }
     }
 
-    /// Continue-your-journey card. Shows the next topic with incomplete
-    /// lessons and an XP progress bar toward the next level.
-    private var continueJourneyCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Your Journey")
-                    .anchoredStyle(.h2)
-                    .foregroundStyle(AnchoredColors.navy)
+    // MARK: - Progress Card ("Your journey")
+
+    private var progressCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Your journey")
+                    .font(.custom("Newsreader", size: 18).weight(.medium))
+                    .foregroundStyle(AnchoredColors.ink)
                 Spacer()
                 if let streak {
-                    Text(streak.levelTitle)
-                        .anchoredStyle(.label)
-                        .foregroundStyle(AnchoredColors.amber)
+                    Text(streak.levelTitle.uppercased())
+                        .font(.custom("Outfit", size: 11).weight(.bold))
+                        .tracking(0.66)
+                        .foregroundStyle(AnchoredColors.coral)
                 }
             }
+            .padding(.bottom, 10)
 
-            // XP progress toward next level
             if let streak {
-                xpBar(
-                    current: streak.xpInCurrentLevel,
-                    total: streak.xpForCurrentLevel,
-                    level: streak.level
-                )
+                HStack {
+                    Text("Level \(streak.level)")
+                        .font(.custom("Outfit", size: 13).weight(.medium))
+                        .foregroundStyle(AnchoredColors.inkSoft)
+                    Spacer()
+                    Text("\(streak.xpInCurrentLevel) / \(streak.xpForCurrentLevel) XP")
+                        .font(.custom("Outfit", size: 12).weight(.medium))
+                        .foregroundStyle(AnchoredColors.inkSoft)
+                        .monospacedDigit()
+                }
+                .padding(.bottom, 8)
+
+                // XP track
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(AnchoredColors.lineSoft)
+                            .frame(height: 6)
+                        Capsule()
+                            .fill(AnchoredColors.gradientPrimary)
+                            .frame(
+                                width: geo.size.width * CGFloat(streak.xpInCurrentLevel) / CGFloat(max(streak.xpForCurrentLevel, 1)),
+                                height: 6
+                            )
+                    }
+                }
+                .frame(height: 6)
+                .clipShape(Capsule())
+                .padding(.bottom, 16)
             }
 
-            Divider().background(AnchoredColors.border)
-
-            // Continue target
+            // Continue learning row
             if let continueTopic {
                 NavigationLink(value: continueTopic) {
                     continueRow(for: continueTopic)
                 }
                 .buttonStyle(.plain)
             } else {
-                Text("Load up a topic in Learn to start your journey.")
-                    .anchoredStyle(.body)
-                    .foregroundStyle(AnchoredColors.muted)
+                Text("Start a topic in Learn to begin your journey.")
+                    .font(.custom("Outfit", size: 13).weight(.medium))
+                    .foregroundStyle(AnchoredColors.inkSoft)
             }
         }
-        .cardSurface(padding: 20)
+        .glassCard(padding: 20, cornerRadius: 22)
         .navigationDestination(for: Topic.self) { topic in
             TopicDetailView(topic: topic)
         }
@@ -195,107 +213,100 @@ struct HomeView: View {
     // MARK: - Sub-components
 
     private func streakBadge(days: Int) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             Image(systemName: "flame.fill")
                 .font(.system(size: 14))
+                .foregroundStyle(AnchoredColors.coral)
             Text("\(days)")
-                .font(.system(size: 14, weight: .bold))
+                .font(.custom("Outfit", size: 13).weight(.bold))
+                .foregroundStyle(AnchoredColors.ink)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(AnchoredColors.streak.opacity(0.15))
-        .foregroundStyle(AnchoredColors.streak)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.85))
         .clipShape(Capsule())
+        .overlay(
+            Capsule().stroke(AnchoredColors.coralSoft, lineWidth: 1)
+        )
+        .shadow(color: AnchoredColors.coral.opacity(0.15), radius: 6, x: 0, y: 4)
     }
 
     private func statTile(icon: String, tint: Color, value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: icon)
-                .foregroundStyle(tint)
-                .font(.system(size: 16))
+        VStack(alignment: .leading, spacing: 0) {
+            // Icon square
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(tint.opacity(0.13))
+                    .frame(width: 24, height: 24)
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                    .foregroundStyle(tint)
+            }
+            .padding(.bottom, 8)
+
             Text(value)
-                .anchoredStyle(.xpDigit)
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Newsreader", size: 24).weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(AnchoredColors.ink)
+
             Text(label)
-                .anchoredStyle(.caption)
-                .foregroundStyle(AnchoredColors.muted)
+                .font(.custom("Outfit", size: 11).weight(.medium))
+                .foregroundStyle(AnchoredColors.inkSoft)
+                .padding(.top, 3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface(padding: 14)
-    }
-
-    private func xpBar(current: Int, total: Int, level: Int) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Level \(level)")
-                    .anchoredStyle(.bodyMd)
-                    .foregroundStyle(AnchoredColors.navy)
-                Spacer()
-                Text("\(current) / \(total) XP")
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.muted)
-            }
-            // SwiftUI's native progress view — respects the tint we set
-            // at the app level so we get amber fill automatically.
-            ProgressView(value: Double(current), total: Double(total))
-                .progressViewStyle(.linear)
-                .tint(AnchoredColors.amber)
-        }
+        .glassCard(padding: 14, cornerRadius: 18)
     }
 
     private func continueRow(for topic: Topic) -> some View {
-        HStack(spacing: 14) {
-            // Topic gradient chip
+        HStack(spacing: 12) {
+            // Topic gradient tile
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(topic.gradient.linearGradient)
-                .frame(width: 48, height: 48)
+                .fill(
+                    LinearGradient(
+                        colors: [AnchoredColors.blue, AnchoredColors.lilac],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 42, height: 42)
                 .overlay(
-                    Text(topic.icon)
-                        .font(.system(size: 22))
+                    Image(systemName: "book.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(.white)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Continue learning")
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.muted)
+                Text("Continue")
+                    .font(.custom("Outfit", size: 11.5).weight(.medium))
+                    .foregroundStyle(AnchoredColors.inkSoft)
                 Text(topic.title)
-                    .anchoredStyle(.h3)
-                    .foregroundStyle(AnchoredColors.navy)
+                    .font(.custom("Newsreader", size: 16).weight(.medium))
+                    .foregroundStyle(AnchoredColors.ink)
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .foregroundStyle(AnchoredColors.muted)
+                .font(.system(size: 14))
+                .foregroundStyle(AnchoredColors.inkMute)
         }
+        .padding(12)
+        .background(Color.white.opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // MARK: - Data loading
 
-    /// One-time setup: build the streak manager, check in, load the daily
-    /// verse from the API, and compute the "continue" target.
     private func bootstrap() async {
-        // Build the StreakManager once and seed check-in for today. This
-        // is idempotent so calling in `.task` on every appearance is safe.
         if streak == nil {
             let userId = authManager.currentUserId ?? "local-user"
             streak = StreakManager(modelContext: modelContext, userId: userId)
         }
         streak?.checkIn()
-
-        // Count completed lessons (for the stat tile).
         refreshLessonCounts()
-
-        // Pick the continue target.
         refreshContinueTopic()
-
-        // Fetch the daily verse text from the API so we respect the
-        // user's translation preference (WEB default for free users).
         await loadDailyVerseText()
     }
 
-    /// Pull the count of completed LessonProgress rows. Kept as a
-    /// separate step so we can re-run it after a lesson finishes
-    /// (which this view doesn't do yet, but a notification-driven
-    /// refresh is trivial to add).
     private func refreshLessonCounts() {
         let descriptor = FetchDescriptor<LessonProgress>(
             predicate: #Predicate<LessonProgress> { $0.completed }
@@ -304,22 +315,16 @@ struct HomeView: View {
         completedLessonsCount = count
     }
 
-    /// Choose the next topic that has any not-yet-completed lessons.
-    /// Falls back to the first topic if everything's done.
     private func refreshContinueTopic() {
         let descriptor = FetchDescriptor<LessonProgress>()
         let completed = (try? modelContext.fetch(descriptor)) ?? []
         let completedIDs = Set(completed.filter(\.completed).map(\.lessonId))
-
         let next = TopicsCatalog.all.first { topic in
             topic.lessons.contains { !completedIDs.contains($0.id) }
         }
         continueTopic = next ?? TopicsCatalog.all.first
     }
 
-    /// Fetch the verse text in the user's preferred translation. We
-    /// don't block the UI — the curated WEB text is already shown and
-    /// swaps in when the fetch returns.
     private func loadDailyVerseText() async {
         let translation = preferredTranslation()
         do {
@@ -327,18 +332,13 @@ struct HomeView: View {
                 reference: dailyVerse.reference,
                 translation: translation
             )
-            // Trim leading/trailing whitespace — bible-api responses
-            // occasionally include footnote markers as newlines.
             let cleaned = passage.text.trimmingCharacters(in: .whitespacesAndNewlines)
             await MainActor.run { self.remoteVerseText = cleaned }
         } catch {
-            // Silent fall-through: the curated WEB text is already on
-            // screen, so the user sees scripture either way.
+            // Fall through: curated WEB text is already showing
         }
     }
 
-    /// Look up the user's preferred translation from their settings row.
-    /// Defaults to WEB if nothing's saved or the value is unknown.
     private func preferredTranslation() -> BibleTranslation {
         let descriptor = FetchDescriptor<UserSettings>()
         guard let settings = (try? modelContext.fetch(descriptor))?.first,
