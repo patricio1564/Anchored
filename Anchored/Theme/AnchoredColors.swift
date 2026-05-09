@@ -1,83 +1,88 @@
-//
-//  AnchoredColors.swift
-//  Anchored
-//
-//  Warm, modern aesthetic per the PRD: cream/parchment background, deep navy
-//  for text, gold/amber accents for highlights and CTAs. All colors are
-//  defined programmatically so the project compiles without asset catalog
-//  entries; when you're ready to tune them in Xcode, promote these into
-//  Colors.xcassets with dark mode variants and delete this file.
-//
-
 import SwiftUI
 
 enum AnchoredColors {
-    // MARK: - Brand Primary
 
-    /// Warm cream / parchment — main background
-    static let parchment = Color(
-        light: Color(red: 249/255, green: 245/255, blue: 239/255),  // #F9F5EF
-        dark:  Color(red: 22/255,  green: 22/255,  blue: 28/255)    // warm near-black
+    // MARK: - Background gradient (vertical, top → bottom)
+
+    static let bg1 = Color(hex: "#FFF6EE")
+    static let bg2 = Color(hex: "#F0E9F7")
+    static let bg3 = Color(hex: "#E8EFF8")
+
+    // MARK: - Surface
+
+    static let paper = Color.white
+    static let glass = Color.white.opacity(0.70)
+    static let glassStrong = Color.white.opacity(0.85)
+
+    // MARK: - Ink (text + structure)
+
+    static let ink = Color(hex: "#1F2647")
+    static let inkSoft = Color(hex: "#5C6388")
+    static let inkMute = Color(hex: "#9BA0BB")
+
+    // MARK: - Brand accents
+
+    static let coral = Color(hex: "#E07A5F")
+    static let coralSoft = Color(hex: "#F4C7B6")
+    static let gold = Color(hex: "#E8B65C")
+    static let blue = Color(hex: "#6E8EC7")
+    static let blueSoft = Color(hex: "#C8D6EC")
+    static let lilac = Color(hex: "#A48FC7")
+
+    // MARK: - Lines
+
+    static let line = Color(red: 31/255, green: 38/255, blue: 71/255).opacity(0.10)
+    static let lineSoft = Color(red: 31/255, green: 38/255, blue: 71/255).opacity(0.06)
+
+    // MARK: - Gradients
+
+    static let gradientPrimary = LinearGradient(
+        colors: [coral, gold],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
     )
 
-    /// Deep navy — primary text and headers
-    static let navy = Color(
-        light: Color(red: 27/255, green: 42/255, blue: 74/255),     // #1B2A4A
-        dark:  Color(red: 240/255, green: 238/255, blue: 230/255)   // warm off-white
+    static let gradientCool = LinearGradient(
+        colors: [lilac, blue],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
     )
 
-    /// Gold / amber — highlights and CTAs
-    static let amber = Color(
-        light: Color(red: 201/255, green: 150/255, blue: 58/255),   // #C9963A
-        dark:  Color(red: 220/255, green: 170/255, blue: 80/255)    // brighter gold for dark mode
-    )
-
-    // MARK: - Semantic
-
-    /// Cards, sheets, elevated surfaces
-    static let card = Color(
-        light: Color.white,
-        dark:  Color(red: 32/255, green: 32/255, blue: 38/255)
-    )
-
-    /// Subtle muted text
-    static let muted = Color(
-        light: Color(red: 115/255, green: 115/255, blue: 115/255),
-        dark:  Color(red: 160/255, green: 160/255, blue: 160/255)
-    )
-
-    /// Hairline borders, dividers
-    static let border = Color(
-        light: Color(red: 230/255, green: 225/255, blue: 215/255),
-        dark:  Color(red: 48/255, green: 48/255, blue: 54/255)
-    )
-
-    /// Tinted background for amber accents (like verse cards)
-    static let amberSoft = Color(
-        light: Color(red: 252/255, green: 242/255, blue: 220/255),
-        dark:  Color(red: 48/255, green: 40/255, blue: 24/255)
+    static let backgroundGradient = LinearGradient(
+        colors: [bg1, bg2, bg3],
+        startPoint: .top,
+        endPoint: .bottom
     )
 
     // MARK: - State
 
     static let success = Color(red: 34/255, green: 139/255, blue: 87/255)
-    static let error   = Color(red: 200/255, green: 62/255, blue: 62/255)
-    static let streak  = Color(red: 240/255, green: 120/255, blue: 56/255)  // flame orange
+    static let error = Color(red: 200/255, green: 62/255, blue: 62/255)
+    static let streak = coral
+
+    // MARK: - Legacy aliases
+
+    static let parchment = bg1
+    static let navy = ink
+    static let amber = coral
+    static let amberSoft = coralSoft
+    static let muted = inkSoft
+    static let border = line
+    static let card = paper
 }
 
-// MARK: - Convenience Color Initializer
+// MARK: - Hex Color Initializer
 
-private extension Color {
-    /// Creates a Color that adapts to light/dark mode.
-    init(light: Color, dark: Color) {
-        #if canImport(UIKit)
-        self = Color(UIColor { trait in
-            trait.userInterfaceStyle == .dark
-                ? UIColor(dark)
-                : UIColor(light)
-        })
-        #else
-        self = light
-        #endif
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        let scanner = Scanner(string: hex)
+        var rgb: UInt64 = 0
+        scanner.scanHexInt64(&rgb)
+        self.init(
+            red: Double((rgb >> 16) & 0xFF) / 255,
+            green: Double((rgb >> 8) & 0xFF) / 255,
+            blue: Double(rgb & 0xFF) / 255
+        )
     }
 }

@@ -1,32 +1,43 @@
-//
-//  ViewModifiers.swift
-//  Anchored
-//
-//  Reusable view modifiers for cards, surfaces, and common treatments.
-//
-
 import SwiftUI
 
-// MARK: - Card Surface
+// MARK: - Glass Card Surface
 
-/// Standard card container — white surface, rounded, hairline border.
+struct GlassCardModifier: ViewModifier {
+    var padding: CGFloat = 20
+    var cornerRadius: CGFloat = 22
+    var strong: Bool = false
+
+    func body(content: Content) -> some View {
+        content
+            .padding(padding)
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .opacity(strong ? 1 : 0.85)
+            )
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(strong ? AnchoredColors.glassStrong : AnchoredColors.glass)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(AnchoredColors.line, lineWidth: 1)
+            )
+    }
+}
+
+// MARK: - Legacy Card Surface (for existing code)
+
 struct CardSurfaceModifier: ViewModifier {
     var padding: CGFloat = 16
     var cornerRadius: CGFloat = 20
 
     func body(content: Content) -> some View {
-        content
-            .padding(padding)
-            .background(AnchoredColors.card)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(AnchoredColors.border, lineWidth: 1)
-            )
+        content.modifier(GlassCardModifier(padding: padding, cornerRadius: cornerRadius))
     }
 }
 
-/// Amber-tinted card — used for the daily verse and other featured content.
 struct AmberCardModifier: ViewModifier {
     var padding: CGFloat = 20
     var cornerRadius: CGFloat = 20
@@ -34,18 +45,28 @@ struct AmberCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .background(AnchoredColors.amberSoft)
+            .background(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.9), AnchoredColors.coralSoft.opacity(0.4)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(AnchoredColors.amber.opacity(0.25), lineWidth: 1)
+                    .stroke(AnchoredColors.coralSoft, lineWidth: 1)
             )
     }
 }
 
 extension View {
+    func glassCard(padding: CGFloat = 20, cornerRadius: CGFloat = 22, strong: Bool = false) -> some View {
+        modifier(GlassCardModifier(padding: padding, cornerRadius: cornerRadius, strong: strong))
+    }
+
     func cardSurface(padding: CGFloat = 16, cornerRadius: CGFloat = 20) -> some View {
-        modifier(CardSurfaceModifier(padding: padding, cornerRadius: cornerRadius))
+        modifier(GlassCardModifier(padding: padding, cornerRadius: cornerRadius))
     }
 
     func amberCard(padding: CGFloat = 20, cornerRadius: CGFloat = 20) -> some View {
@@ -56,8 +77,61 @@ extension View {
 // MARK: - Screen Padding
 
 extension View {
-    /// Consistent horizontal screen padding (20pt each side).
     func screenPadding() -> some View {
-        padding(.horizontal, 20)
+        padding(.horizontal, 22)
+    }
+}
+
+// MARK: - App Background
+
+struct AppBackgroundModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        ZStack {
+            AnchoredColors.backgroundGradient.ignoresSafeArea()
+
+            ZStack {
+                // Coral glow at top
+                RadialGradient(
+                    colors: [AnchoredColors.coralSoft.opacity(0.56), .clear],
+                    center: UnitPoint(x: 0.5, y: -0.1),
+                    startRadius: 0,
+                    endRadius: 300
+                )
+                // Lilac glow at right
+                RadialGradient(
+                    colors: [AnchoredColors.lilac.opacity(0.25), .clear],
+                    center: UnitPoint(x: 1.0, y: 0.5),
+                    startRadius: 0,
+                    endRadius: 250
+                )
+                // Blue glow at bottom-left
+                RadialGradient(
+                    colors: [AnchoredColors.blueSoft.opacity(0.50), .clear],
+                    center: UnitPoint(x: 0.0, y: 0.9),
+                    startRadius: 0,
+                    endRadius: 280
+                )
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+
+            content
+        }
+    }
+}
+
+extension View {
+    func appBackground() -> some View {
+        modifier(AppBackgroundModifier())
+    }
+}
+
+// MARK: - Press Feedback
+
+struct PressScaleModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(1.0)
+            .animation(.easeOut(duration: 0.1), value: false)
     }
 }
