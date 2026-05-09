@@ -45,3 +45,6 @@ secrets.plist
 
 # Node (layer2 scripts)
 node_modules/
+
+# Claude Code
+.claude/
