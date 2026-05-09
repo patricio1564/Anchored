@@ -1,3 +1,437 @@
+# Scripture Reading Fix Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Fix 73/176 lessons that show human-written summaries instead of actual Bible text by parsing compound scripture references, fetching chapters individually, and presenting them one at a time with per-chapter comprehension quizzes.
+
+**Architecture:** A pure `ScriptureReferenceParser` (enum with static methods) splits compound references into individual API-friendly strings. `LessonView` is rewritten with a chapter-paged reading flow that fetches all chapters concurrently and presents them one at a time, with an optional comprehension quiz after each chapter (iOS 26+ only via Foundation Models). The `teaching` field moves to a post-reading commentary section, never displayed as a scripture substitute.
+
+**Tech Stack:** SwiftUI, SwiftData, async/await with TaskGroup, Foundation Models (iOS 26+ gated via `#if canImport(FoundationModels)` + `@available(iOS 26.0, *)`)
+
+---
+
+## File Structure
+
+### New Files
+- `Anchored/Services/ScriptureReferenceParser.swift` — Pure stateless parser (enum with static methods). Converts compound scripture reference strings into arrays of individual API-friendly references.
+- `Anchored/Services/ChapterQuizGenerator.swift` — Foundation Models quiz generation service (iOS 26+ only). Generates 1-2 comprehension questions from a `BiblePassage`.
+
+### Modified Files
+- `Anchored/Features/Lesson/LessonView.swift` — Major rewrite. New phase model with chapter-paged reading, concurrent multi-fetch, teaching as post-reading commentary, comprehension check integration.
+
+### Unchanged Files (reference only)
+- `Anchored/Services/BibleAPIService.swift` — Still fetches one reference at a time. No changes needed.
+- `Anchored/Features/Quiz/QuizQuestionCard.swift` — Reused unchanged for both comprehension checks and the final quiz.
+- `Anchored/Content/TopicCatalog.swift` — `Lesson` struct stays the same. `scripture`, `teaching`, `keyVerse`, `questions` fields all unchanged.
+
+---
+
+### Task 1: ScriptureReferenceParser
+
+**Files:**
+- Create: `Anchored/Services/ScriptureReferenceParser.swift`
+
+This is a pure, stateless utility with no dependencies. It converts the `lesson.scripture` string (e.g. `"Romans 3; 5; 8"`) into an array of individual references (e.g. `["Romans 3", "Romans 5", "Romans 8"]`) that `BibleAPIService` can handle one at a time.
+
+- [ ] **Step 1: Create `ScriptureReferenceParser.swift` with the full implementation**
+
+Create `Anchored/Services/ScriptureReferenceParser.swift`:
+
+```swift
+// ────────────────────────────────────────────────────────────────────────────
+// ScriptureReferenceParser.swift
+//
+// Stateless utility that converts a lesson's compound scripture reference
+// string into an array of individual references that bible-api.com can
+// handle one at a time.
+//
+// Examples:
+//   "Romans 3; 5; 8"   → ["Romans 3", "Romans 5", "Romans 8"]
+//   "Genesis 6-9"      → ["Genesis 6", "Genesis 7", "Genesis 8", "Genesis 9"]
+//   "Psalm 23"         → ["Psalm 23"]
+//   "John 3:16-18"     → ["John 3:16-18"]  (pass-through, API handles verse ranges)
+//   "1 Corinthians 13; 15" → ["1 Corinthians 13", "1 Corinthians 15"]
+// ────────────────────────────────────────────────────────────────────────────
+
+import Foundation
+
+enum ScriptureReferenceParser {
+
+    /// Split a compound scripture reference into individual API-friendly references.
+    ///
+    /// The book name carries forward across semicolons. `"Romans 3; 5; 8"`
+    /// means the parser sees `"Romans 3"`, then `" 5"` (no book name → reuse
+    /// "Romans"), then `" 8"` (reuse "Romans").
+    ///
+    /// Verse-level references (containing a colon) pass through as-is — the
+    /// hyphen in `"John 3:16-18"` is a verse range, not a chapter range.
+    ///
+    /// Numbered books (`"1 Corinthians"`, `"2 Kings"`) are handled correctly.
+    static func parse(_ reference: String) -> [String] {
+        let trimmed = reference.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        // Split on semicolons first.
+        let segments = trimmed.components(separatedBy: ";").map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty }
+
+        guard !segments.isEmpty else { return [trimmed] }
+
+        var results: [String] = []
+        var lastBookName: String? = nil
+
+        for segment in segments {
+            let (book, remainder) = extractBookName(from: segment)
+
+            if let book = book {
+                // This segment has its own book name.
+                lastBookName = book
+                let refs = expandChapterRange(book: book, remainder: remainder)
+                results.append(contentsOf: refs)
+            } else if let book = lastBookName {
+                // No book name in this segment — reuse the previous one.
+                let refs = expandChapterRange(book: book, remainder: segment)
+                results.append(contentsOf: refs)
+            } else {
+                // No book name found and no previous book — pass through as-is.
+                results.append(segment)
+            }
+        }
+
+        return results.isEmpty ? [trimmed] : results
+    }
+
+    // MARK: - Private helpers
+
+    /// Separate the book name from the chapter/verse portion of a reference.
+    ///
+    /// Returns `(bookName, remainder)` where bookName is e.g. "Romans" or
+    /// "1 Corinthians" and remainder is e.g. "3" or "3:16-18".
+    ///
+    /// Returns `(nil, original)` if no book name is detected (e.g. the segment
+    /// is just "5" from splitting "Romans 3; 5; 8" on semicolons).
+    private static func extractBookName(from segment: String) -> (book: String?, remainder: String) {
+        let trimmed = segment.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // A segment that is purely numeric (e.g. "5") has no book name.
+        // Also handles "5-8" (range with no book).
+        if trimmed.allSatisfy({ $0.isNumber || $0 == "-" || $0 == ":" || $0 == " " }) {
+            return (nil, trimmed)
+        }
+
+        // Strategy: walk from the end to find where the chapter/verse number starts.
+        // The book name is everything before the last space that precedes a digit.
+        //
+        // "Romans 3"         → book="Romans", remainder="3"
+        // "1 Corinthians 13" → book="1 Corinthians", remainder="13"
+        // "Song of Solomon 2" → book="Song of Solomon", remainder="2"
+        // "Genesis 6-9"      → book="Genesis", remainder="6-9"
+        // "John 3:16-18"     → book="John", remainder="3:16-18"
+
+        // Find the last space that is followed by a digit.
+        guard let lastSpaceBeforeDigit = findLastSpaceBeforeDigit(in: trimmed) else {
+            // No space-before-digit found. Treat as a standalone book name
+            // (e.g. "Psalms" with no chapter). Pass through.
+            return (trimmed, "")
+        }
+
+        let book = String(trimmed[trimmed.startIndex..<lastSpaceBeforeDigit])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let remainder = String(trimmed[trimmed.index(after: lastSpaceBeforeDigit)...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return (book, remainder)
+    }
+
+    /// Find the index of the last space character that is immediately followed
+    /// by a digit character.
+    private static func findLastSpaceBeforeDigit(in string: String) -> String.Index? {
+        var result: String.Index? = nil
+        var index = string.startIndex
+        while index < string.endIndex {
+            let nextIndex = string.index(after: index)
+            if string[index] == " " && nextIndex < string.endIndex && string[nextIndex].isNumber {
+                result = index
+            }
+            index = nextIndex
+        }
+        return result
+    }
+
+    /// Given a book name and a remainder like "6-9" or "3:16-18", expand
+    /// chapter ranges into individual references.
+    ///
+    /// - "6-9" (no colon) → ["Genesis 6", "Genesis 7", "Genesis 8", "Genesis 9"]
+    /// - "3:16-18" (has colon) → ["John 3:16-18"] (pass-through, verse range)
+    /// - "3" → ["Romans 3"]
+    private static func expandChapterRange(book: String, remainder: String) -> [String] {
+        let trimmedRemainder = remainder.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Empty remainder — just the book name (unusual but handle gracefully).
+        guard !trimmedRemainder.isEmpty else {
+            return [book]
+        }
+
+        // If the remainder contains a colon, it's a verse-level reference.
+        // Pass through as-is — the hyphen (if any) is a verse range.
+        if trimmedRemainder.contains(":") {
+            return ["\(book) \(trimmedRemainder)"]
+        }
+
+        // If the remainder contains a hyphen, it's a chapter range.
+        if trimmedRemainder.contains("-") {
+            let parts = trimmedRemainder.components(separatedBy: "-")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+            if parts.count == 2,
+               let start = Int(parts[0]),
+               let end = Int(parts[1]),
+               start <= end,
+               end - start < 50 // Safety: don't expand absurdly large ranges
+            {
+                return (start...end).map { "\(book) \($0)" }
+            }
+        }
+
+        // Simple single reference.
+        return ["\(book) \(trimmedRemainder)"]
+    }
+}
+```
+
+- [ ] **Step 2: Verify the new file compiles by checking for syntax issues**
+
+Open the file in Xcode or run `xcodegen generate` then build. Expected: no errors — this is a pure Swift file with no external dependencies (only `import Foundation`).
+
+- [ ] **Step 3: Spot-check parsing logic manually**
+
+In a Swift playground or by adding temporary print statements, verify:
+- `ScriptureReferenceParser.parse("Romans 3; 5; 8")` → `["Romans 3", "Romans 5", "Romans 8"]`
+- `ScriptureReferenceParser.parse("Genesis 6-9")` → `["Genesis 6", "Genesis 7", "Genesis 8", "Genesis 9"]`
+- `ScriptureReferenceParser.parse("Psalm 23")` → `["Psalm 23"]`
+- `ScriptureReferenceParser.parse("John 3:16-18")` → `["John 3:16-18"]`
+- `ScriptureReferenceParser.parse("1 Corinthians 13; 15")` → `["1 Corinthians 13", "1 Corinthians 15"]`
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add Anchored/Services/ScriptureReferenceParser.swift
+git commit -m "feat: add ScriptureReferenceParser for compound scripture references
+
+Splits semicolons ('Romans 3; 5; 8') and chapter ranges ('Genesis 6-9')
+into individual references that bible-api.com can handle one at a time.
+Verse-level references pass through unchanged."
+```
+
+---
+
+### Task 2: ChapterQuizGenerator
+
+**Files:**
+- Create: `Anchored/Services/ChapterQuizGenerator.swift`
+
+This service uses Apple Foundation Models (iOS 26+ only) to generate 1-2 comprehension questions after each chapter reading. It returns `[QuizQuestion]` — the same type used by hand-written questions — so `QuizQuestionCard` works unchanged.
+
+On iOS < 26 or if generation fails, it returns an empty array. Callers skip the comprehension check when the array is empty.
+
+- [ ] **Step 1: Create `ChapterQuizGenerator.swift` with the full implementation**
+
+Create `Anchored/Services/ChapterQuizGenerator.swift`:
+
+```swift
+// ────────────────────────────────────────────────────────────────────────────
+// ChapterQuizGenerator.swift
+//
+// Uses Apple Foundation Models (iOS 26+) to generate 1-2 comprehension
+// questions from a Bible passage the user just read. Returns [QuizQuestion]
+// — the same type used by hand-written questions — so QuizQuestionCard
+// works unchanged for both comprehension checks and the final quiz.
+//
+// Gating:
+//   - #if canImport(FoundationModels) — compile-time gate for older SDKs
+//   - @available(iOS 26.0, *) — runtime gate for older devices
+//
+// Fallback:
+//   - Returns empty array on iOS < 26 or if generation fails
+//   - Callers skip the comprehension check when array is empty
+//   - Comprehension checks are an enhancement, not a gate
+// ────────────────────────────────────────────────────────────────────────────
+
+import Foundation
+
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Public interface
+// ─────────────────────────────────────────────────────────────────────────────
+
+@MainActor
+final class ChapterQuizGenerator {
+
+    static let shared = ChapterQuizGenerator()
+    private init() {}
+
+    /// Generate 1-2 comprehension questions for a Bible passage.
+    /// Returns empty array on iOS < 26 or if generation fails.
+    func generate(for passage: BiblePassage) async -> [QuizQuestion] {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            return await generateWithFoundationModels(passage: passage)
+        }
+        #endif
+        return []
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Foundation Models implementation
+// ─────────────────────────────────────────────────────────────────────────────
+
+#if canImport(FoundationModels)
+
+@available(iOS 26.0, *)
+@Generable
+private struct GeneratedQuiz {
+    @Guide(description: "An array of 1 to 2 multiple-choice comprehension questions about the Bible passage.")
+    let questions: [GeneratedQuestion]
+}
+
+@available(iOS 26.0, *)
+@Generable
+private struct GeneratedQuestion {
+    @Guide(description: "The question text. A simple factual question about what happens in the passage.")
+    let prompt: String
+
+    @Guide(description: "Exactly 4 answer options. One must be correct.")
+    let options: [String]
+
+    @Guide(description: "The zero-based index of the correct option (0, 1, 2, or 3).")
+    let correctIndex: Int
+
+    @Guide(description: "A 1-2 sentence explanation of the correct answer, referencing the passage.")
+    let explanation: String
+}
+
+@available(iOS 26.0, *)
+extension ChapterQuizGenerator {
+
+    fileprivate func generateWithFoundationModels(passage: BiblePassage) async -> [QuizQuestion] {
+        let instructions = """
+        You are a Bible reading comprehension quiz maker. Given a Bible passage, \
+        create 1-2 simple factual multiple-choice questions about what happens in \
+        the passage. Each question has exactly 4 options with one correct answer. \
+        Questions should be answerable by someone who just read the passage — no \
+        trick questions, no theological interpretation, just reading comprehension. \
+        Keep questions and options concise.
+        """
+
+        // Build a condensed version of the passage text for the prompt.
+        let verseText = passage.verses.map { "(\($0.verse)) \($0.text)" }.joined(separator: " ")
+        let prompt = """
+        Bible passage — \(passage.reference):
+
+        \(verseText)
+
+        Create 1-2 comprehension questions about this passage.
+        """
+
+        do {
+            let session = LanguageModelSession(instructions: instructions)
+
+            // Race against an 8-second timeout (same pattern as VerseRecommenderService).
+            let result: [QuizQuestion]? = try await withThrowingTaskGroup(
+                of: [QuizQuestion]?.self
+            ) { group in
+                group.addTask {
+                    let response = try await session.respond(
+                        to: prompt,
+                        generating: GeneratedQuiz.self
+                    )
+                    return response.content.toQuizQuestions()
+                }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(8))
+                    throw CancellationError()
+                }
+                let value = try await group.next()
+                group.cancelAll()
+                return value ?? nil
+            }
+            return result ?? []
+        } catch {
+            // Timeout or model error — skip comprehension check silently.
+            return []
+        }
+    }
+}
+
+@available(iOS 26.0, *)
+private extension GeneratedQuiz {
+    /// Convert the model's @Generable output into the app's QuizQuestion type.
+    func toQuizQuestions() -> [QuizQuestion] {
+        questions.compactMap { q in
+            // Validate: need exactly 4 options and a valid correctIndex.
+            guard q.options.count == 4,
+                  (0...3).contains(q.correctIndex) else {
+                return nil
+            }
+            return QuizQuestion(
+                prompt: q.prompt,
+                options: q.options,
+                correctIndex: q.correctIndex,
+                explanation: q.explanation
+            )
+        }
+    }
+}
+
+#endif
+```
+
+- [ ] **Step 2: Verify the file compiles**
+
+Run `xcodegen generate` then build. Expected: no errors. The `#if canImport(FoundationModels)` gate means this compiles cleanly on both Xcode 16 (no FoundationModels) and Xcode 26 beta.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add Anchored/Services/ChapterQuizGenerator.swift
+git commit -m "feat: add ChapterQuizGenerator for per-chapter comprehension quizzes
+
+Uses Foundation Models (iOS 26+) to generate 1-2 reading comprehension
+questions after each chapter. Returns [QuizQuestion] so QuizQuestionCard
+works unchanged. Returns empty array on iOS < 26 or if generation fails."
+```
+
+---
+
+### Task 3: Rewrite LessonView with chapter-paged reading flow
+
+**Files:**
+- Modify: `Anchored/Features/Lesson/LessonView.swift` (full rewrite — 596 lines → ~700 lines)
+
+This is the core change. The current `LessonView` has three phases (reading → quiz → results). The new version has a chapter-paged flow:
+
+```
+.reading(chapterIndex) → .chapterQuiz(chapterIndex) → ... → .teaching → .quiz → .results
+```
+
+Key changes:
+1. **Phase model** becomes an enum with associated values for chapter index
+2. **`loadScripture()`** uses `ScriptureReferenceParser` + concurrent fetching via `TaskGroup`
+3. **Reading phase** shows one chapter at a time with "Next" navigation
+4. **Chapter quiz** (iOS 26+) shows 1-2 comprehension questions between chapters
+5. **Teaching phase** is new — shows `lesson.teaching` as commentary after all reading, before quiz
+6. **Error handling** shows retry buttons per chapter, never falls back to `lesson.teaching`
+
+- [ ] **Step 1: Replace `LessonView.swift` with the complete new implementation**
+
+Replace the entire contents of `Anchored/Features/Lesson/LessonView.swift` with:
+
+```swift
 // ────────────────────────────────────────────────────────────────────────────
 // LessonView.swift
 //
@@ -61,6 +495,7 @@ struct LessonView: View {
     /// Generated comprehension questions per chapter index.
     @State private var comprehensionQuestions: [Int: [QuizQuestion]] = [:]
     @State private var comprehensionIndex = 0
+    @State private var comprehensionAnswered = false
 
     // MARK: - Flow state
 
@@ -283,6 +718,7 @@ struct LessonView: View {
         if let questions = comprehensionQuestions[chapterIndex], !questions.isEmpty {
             withAnimation(.easeInOut(duration: 0.25)) {
                 comprehensionIndex = 0
+                comprehensionAnswered = false
                 phase = .chapterQuiz(chapterIndex: chapterIndex)
             }
         } else {
@@ -334,12 +770,14 @@ struct LessonView: View {
                     shuffleSeed: lesson.id.hashValue &+ chapterIndex &* 1000 &+ comprehensionIndex,
                     onAnswer: { _, _ in
                         // No XP for comprehension checks. No combo tracking.
+                        comprehensionAnswered = true
                     },
                     onContinue: {
                         let questions = comprehensionQuestions[chapterIndex] ?? []
                         if comprehensionIndex + 1 < questions.count {
                             withAnimation(.easeInOut(duration: 0.25)) {
                                 comprehensionIndex += 1
+                                comprehensionAnswered = false
                             }
                         } else {
                             advanceFromChapterQuiz(chapterIndex: chapterIndex)
@@ -602,7 +1040,7 @@ struct LessonView: View {
         earnedXP = calculateXP()
         persistProgress(xp: earnedXP)
         streakManager.awardXP(earnedXP)
-        _ = streakManager.checkIn()
+        streakManager.checkIn()
 
         withAnimation(.easeInOut(duration: 0.3)) {
             phase = .results
@@ -854,3 +1292,93 @@ private struct ReviewCard: View {
     .environment(manager)
     .environmentObject(PremiumManager.preview)
 }
+```
+
+- [ ] **Step 2: Run `xcodegen generate` and build**
+
+```bash
+cd /path/to/Anchored
+xcodegen generate
+```
+
+Then build in Xcode (⌘B). Expected: clean build, no errors.
+
+Common issues to check:
+- `AnchoredColors.muted` — verify this property exists (used in the original code, should be fine)
+- `LessonProgress` init — make sure the initializer matches (it takes `topicId`, `lessonId`, `completed`, `score`, `xpEarned`, `completedAt`)
+- `StreakManager.awardXP()` and `.checkIn()` — same signatures as before
+
+- [ ] **Step 3: Verify `#Preview` macro renders without crashes**
+
+Open the Canvas in Xcode for `LessonView.swift`. The preview should:
+- Show the first lesson from the first topic
+- Display the chapter reading phase with verse text
+- Not crash or show blank content
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add Anchored/Features/Lesson/LessonView.swift
+git commit -m "feat: rewrite LessonView with chapter-paged reading flow
+
+Fixes 73/176 lessons that showed summaries instead of actual Bible text.
+Compound scripture references are now parsed into individual chapters and
+fetched concurrently. Chapters are presented one at a time with a progress
+indicator. Teaching text appears as post-reading commentary, never as a
+scripture substitute. Per-chapter comprehension quizzes (iOS 26+ only)
+are generated via Foundation Models between chapters."
+```
+
+---
+
+### Task 4: Regenerate Xcode project and full verification
+
+**Files:**
+- No code changes — this task verifies everything works together.
+
+- [ ] **Step 1: Regenerate the Xcode project**
+
+```bash
+cd /path/to/Anchored
+xcodegen generate
+```
+
+Expected output: `⚙️  Generating plists...` followed by `Created project Anchored.xcodeproj`
+
+This picks up the two new files (`ScriptureReferenceParser.swift`, `ChapterQuizGenerator.swift`).
+
+- [ ] **Step 2: Build in Xcode**
+
+Open `Anchored.xcodeproj` and build (⌘B). Expected: clean build with zero errors.
+
+- [ ] **Step 3: Run through the verification checklist**
+
+Test each item from the design spec's verification checklist:
+
+1. **Single-chapter lessons** (`"Psalm 23"`): read → teaching → quiz → results. Should work identically to before except teaching is now a separate phase after reading.
+2. **Semicolon references** (`"Romans 3; 5; 8"`): should show three separate chapters with "Chapter 1 of 3" progress indicator and "Next Chapter" button.
+3. **Hyphenated ranges** (`"Genesis 6-9"`): should expand to four chapters with paging.
+4. **Verse-level references** (`"John 3:16-18"`): should pass through and fetch correctly as a single chapter.
+5. **Teaching text**: appears after all reading, before the quiz — never as a scripture substitute.
+6. **Failed chapter fetch**: shows retry button, not teaching fallback. (Test by enabling airplane mode.)
+7. **All chapters fetched concurrently**: the user can start reading chapter 1 while others load.
+8. **Chapter progress indicator**: shows "Chapter 2 of 3" style position.
+9. **(iOS 26+) Comprehension questions**: appear after each chapter.
+10. **(iOS 26+) Comprehension questions use QuizQuestionCard**: same card component.
+11. **(iOS 26+) No XP for comprehension checks**: XP only from final quiz.
+12. **(iOS < 26) Comprehension checks skipped**: chapters flow directly to next.
+13. **(iOS 26+) Failed quiz generation**: skips silently to next chapter.
+14. **Hand-written quiz**: still works in the final quiz phase.
+15. **XP calculation unchanged**: based on final quiz only.
+16. **`#Preview` macros**: render without crashes.
+
+- [ ] **Step 4: Commit any fixes from verification**
+
+If any issues were found and fixed during verification:
+
+```bash
+git add -A
+git commit -m "fix: address issues found during scripture reading verification"
+```
+
+If no issues, skip this step.
