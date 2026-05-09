@@ -1,11 +1,3 @@
-//
-//  RootView.swift
-//  Anchored
-//
-//  Top-level view that decides between the onboarding flow (if the user
-//  isn't signed in) and the main tabbed app experience.
-//
-
 import SwiftUI
 
 struct RootView: View {
@@ -15,7 +7,6 @@ struct RootView: View {
         Group {
             switch authManager.state {
             case .unknown:
-                // Brief splash while we check keychain for existing credentials
                 SplashView()
             case .signedOut:
                 OnboardingView()
@@ -27,19 +18,17 @@ struct RootView: View {
     }
 }
 
-// MARK: - Splash
-
 struct SplashView: View {
     var body: some View {
         ZStack {
-            AnchoredColors.parchment.ignoresSafeArea()
-            VStack(spacing: 16) {
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(AnchoredColors.amber)
+            AnchoredColors.backgroundGradient.ignoresSafeArea()
+            VStack(spacing: 12) {
+                Circle()
+                    .fill(AnchoredColors.gradientPrimary)
+                    .frame(width: 48, height: 48)
                 Text("Anchored")
-                    .anchoredStyle(.h1)
-                    .foregroundStyle(AnchoredColors.navy)
+                    .font(.custom("Newsreader", size: 24).weight(.medium))
+                    .foregroundStyle(AnchoredColors.ink)
             }
         }
     }
