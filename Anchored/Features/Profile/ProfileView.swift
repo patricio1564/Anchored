@@ -1,28 +1,3 @@
-//
-//  ProfileView.swift
-//  Anchored
-//
-//  The "Profile" tab. Two major sections:
-//
-//  1. Progress dashboard — streak, XP progress toward next level,
-//     lifetime lesson count, and the 8 achievement badges with
-//     unlocked / locked visual treatment.
-//
-//  2. Settings — preferred translation (respects premium gating),
-//     font size, daily-reminder toggle (with real permission flow),
-//     and sign-out.
-//
-//  Also hosts a hidden debug toggle for `PremiumManager.debugUnlock`
-//  to make testing the paywall easy during development. The debug
-//  block is compiled out of release builds.
-//
-//  ───── Notification permission flow ─────
-//  The toggle prompts for permission the first time it's flipped on.
-//  If permission was previously denied we surface a Settings deep-link
-//  button instead of silently failing. This matches the Layer 2
-//  README's "contextual, never at launch" philosophy.
-//
-
 import SwiftUI
 import SwiftData
 import UserNotifications
@@ -34,21 +9,9 @@ struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppearanceManager.self) private var appearanceManager
 
-    // MARK: - Live data
-
-    /// Lazily-constructed streak manager. We hold it across renders so
-    /// mutations (reset, award XP from debug) don't rebuild state.
     @State private var streak: StreakManager?
-
-    /// Live query of all progress rows. Drives the achievement checks
-    /// and the lifetime lesson count.
     @Query private var progressRows: [LessonProgress]
-
-    /// Settings row — there should only ever be one. If for some reason
-    /// there's no row yet, we lazy-create on first edit.
     @Query private var settingsRows: [UserSettings]
-
-    // MARK: - UI state
 
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var isReminderOn: Bool = false
@@ -63,7 +26,14 @@ struct ProfileView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 18) {
+                // Display title
+                Text("Profile")
+                    .font(.custom("Newsreader", size: 36).weight(.regular))
+                    .tracking(-0.72)
+                    .foregroundStyle(AnchoredColors.ink)
+                    .padding(.bottom, 2)
+
                 header
                 statsGrid
                 levelCard
@@ -73,13 +43,14 @@ struct ProfileView: View {
                 signOutButton
                 Spacer(minLength: 40)
             }
-            .padding(.top, 8)
+            .padding(.top, 58)
             .padding(.bottom, 24)
             .screenPadding()
         }
-        .background(AnchoredColors.parchment.ignoresSafeArea())
-        .navigationTitle("Profile")
-        .navigationBarTitleDisplayMode(.large)
+        .appBackground()
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task { await bootstrap() }
         .sheet(isPresented: $premiumManager.isShowingPaywall) {
             PaywallSheet()
@@ -108,22 +79,36 @@ struct ProfileView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            // Circular avatar with initials
+            // Avatar with gradient + initials
             ZStack {
                 Circle()
-                    .fill(AnchoredColors.amber.opacity(0.18))
-                    .frame(width: 56, height: 56)
+                    .fill(AnchoredColors.gradientPrimary)
+                    .frame(width: 64, height: 64)
+                    .shadow(color: AnchoredColors.coral.opacity(0.35), radius: 11, x: 0, y: 8)
                 Text(initials)
-                    .anchoredStyle(.h3)
-                    .foregroundStyle(AnchoredColors.amber)
+                    .font(.custom("Newsreader", size: 24).weight(.medium))
+                    .foregroundStyle(.white)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(displayName)
-                    .anchoredStyle(.h2)
-                    .foregroundStyle(AnchoredColors.navy)
-                Text(premiumManager.isPremium ? "Premium member" : "Free account")
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.muted)
+                    .font(.custom("Newsreader", size: 22).weight(.medium))
+                    .foregroundStyle(AnchoredColors.ink)
+                HStack(spacing: 4) {
+                    if premiumManager.isPremium {
+                        Text("\u{2605} PREMIUM")
+                            .font(.custom("Outfit", size: 12).weight(.semibold))
+                            .tracking(0.48)
+                            .foregroundStyle(AnchoredColors.coral)
+                    }
+                    if let streak {
+                        Text(premiumManager.isPremium ? "\u{00B7} " : "")
+                            .foregroundStyle(AnchoredColors.coral) +
+                        Text(streak.levelTitle.uppercased())
+                            .font(.custom("Outfit", size: 12).weight(.semibold))
+                            .tracking(0.48)
+                            .foregroundStyle(AnchoredColors.coral)
+                    }
+                }
             }
             Spacer()
         }
@@ -132,57 +117,82 @@ struct ProfileView: View {
     // MARK: - Stats
 
     private var statsGrid: some View {
-        HStack(spacing: 12) {
-            stat(icon: "flame.fill", tint: AnchoredColors.streak,
-                 value: "\(streak?.currentStreak ?? 0)", label: "Streak")
-            stat(icon: "trophy.fill", tint: AnchoredColors.amber,
-                 value: "\(streak?.longestStreak ?? 0)", label: "Best")
-            stat(icon: "book.fill", tint: AnchoredColors.navy,
-                 value: "\(completedLessonsCount)", label: "Lessons")
+        HStack(spacing: 8) {
+            statTile(icon: "flame.fill", tint: AnchoredColors.coral,
+                     value: "\(streak?.currentStreak ?? 0)", label: "Streak")
+            statTile(icon: "trophy.fill", tint: AnchoredColors.gold,
+                     value: "\(streak?.longestStreak ?? 0)", label: "Best")
+            statTile(icon: "book.fill", tint: AnchoredColors.blue,
+                     value: "\(completedLessonsCount)", label: "Lessons")
         }
     }
 
-    private func stat(icon: String, tint: Color, value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: icon)
-                .foregroundStyle(tint)
-                .font(.system(size: 16))
+    private func statTile(icon: String, tint: Color, value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(tint.opacity(0.13))
+                    .frame(width: 24, height: 24)
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                    .foregroundStyle(tint)
+            }
+            .padding(.bottom, 8)
+
             Text(value)
-                .anchoredStyle(.xpDigit)
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Newsreader", size: 24).weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(AnchoredColors.ink)
+
             Text(label)
-                .anchoredStyle(.caption)
-                .foregroundStyle(AnchoredColors.muted)
+                .font(.custom("Outfit", size: 11).weight(.medium))
+                .foregroundStyle(AnchoredColors.inkSoft)
+                .padding(.top, 3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface(padding: 14)
+        .glassCard(padding: 14, cornerRadius: 18)
     }
 
     // MARK: - Level / XP
 
     private var levelCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
                 Text("Level \(streak?.level ?? 1)")
-                    .anchoredStyle(.h3)
-                    .foregroundStyle(AnchoredColors.navy)
+                    .font(.custom("Newsreader", size: 18).weight(.medium))
+                    .foregroundStyle(AnchoredColors.ink)
                 Spacer()
-                Text(streak?.levelTitle ?? "Seeker")
-                    .anchoredStyle(.label)
-                    .foregroundStyle(AnchoredColors.amber)
+                Text((streak?.levelTitle ?? "Seeker").uppercased())
+                    .font(.custom("Outfit", size: 11).weight(.bold))
+                    .tracking(0.66)
+                    .foregroundStyle(AnchoredColors.coral)
             }
+            .padding(.bottom, 10)
+
             if let streak {
-                ProgressView(value: Double(streak.xpInCurrentLevel),
-                             total: Double(streak.xpForCurrentLevel))
-                    .progressViewStyle(.linear)
-                    .tint(AnchoredColors.amber)
-                Text("\(streak.xpInCurrentLevel) / \(streak.xpForCurrentLevel) XP to next level")
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.muted)
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(AnchoredColors.lineSoft)
+                            .frame(height: 6)
+                        Capsule()
+                            .fill(AnchoredColors.gradientPrimary)
+                            .frame(
+                                width: geo.size.width * CGFloat(streak.xpInCurrentLevel) / CGFloat(max(streak.xpForCurrentLevel, 1)),
+                                height: 6
+                            )
+                    }
+                }
+                .frame(height: 6)
+                .clipShape(Capsule())
+
+                Text("\(streak.xpForCurrentLevel - streak.xpInCurrentLevel) XP to \(nextLevelTitle)")
+                    .font(.custom("Outfit", size: 12).weight(.medium))
+                    .foregroundStyle(AnchoredColors.inkSoft)
+                    .padding(.top, 8)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface(padding: 20)
+        .glassCard(padding: 18, cornerRadius: 20)
     }
 
     // MARK: - Subscription
@@ -201,31 +211,32 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 14) {
                 ZStack {
-                    Circle()
-                        .fill(AnchoredColors.amber.opacity(0.14))
-                        .frame(width: 44, height: 44)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AnchoredColors.gold.opacity(0.13))
+                        .frame(width: 32, height: 32)
                     Image(systemName: "star.fill")
-                        .foregroundStyle(AnchoredColors.amber)
-                        .font(.system(size: 18))
+                        .font(.system(size: 14))
+                        .foregroundStyle(AnchoredColors.gold)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Unlock Premium")
-                        .anchoredStyle(.bodyMd)
-                        .foregroundStyle(AnchoredColors.navy)
+                        .font(.custom("Outfit", size: 14.5).weight(.semibold))
+                        .foregroundStyle(AnchoredColors.ink)
                     Text("All translations, verse highlights, and more.")
-                        .anchoredStyle(.caption)
-                        .foregroundStyle(AnchoredColors.muted)
+                        .font(.custom("Outfit", size: 12).weight(.medium))
+                        .foregroundStyle(AnchoredColors.inkSoft)
                 }
                 Spacer()
                 Button {
                     premiumManager.presentPaywall()
                 } label: {
                     Text("Upgrade")
-                        .anchoredStyle(.label)
+                        .font(.custom("Outfit", size: 11).weight(.semibold))
+                        .tracking(0.44)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(AnchoredColors.amber)
+                        .background(AnchoredColors.gradientPrimary)
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -234,22 +245,22 @@ struct ProfileView: View {
                 showOfferCodeSheet = true
             } label: {
                 Text("Have an offer code?")
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.amber)
+                    .font(.custom("Outfit", size: 12).weight(.medium))
+                    .foregroundStyle(AnchoredColors.coral)
             }
             .buttonStyle(.plain)
         }
-        .cardSurface(padding: 16)
+        .glassCard(padding: 16, cornerRadius: 20)
     }
 
     private var premiumActiveCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(AnchoredColors.amber)
+                    .foregroundStyle(AnchoredColors.coral)
                 Text("Premium Active")
-                    .anchoredStyle(.bodyMd)
-                    .foregroundStyle(AnchoredColors.navy)
+                    .font(.custom("Outfit", size: 14.5).weight(.semibold))
+                    .foregroundStyle(AnchoredColors.ink)
                 Spacer()
             }
             HStack(spacing: 10) {
@@ -259,14 +270,15 @@ struct ProfileView: View {
                     UIApplication.shared.open(url)
                     #endif
                 } label: {
-                    Text("Manage Subscription")
-                        .anchoredStyle(.label)
+                    Text("MANAGE")
+                        .font(.custom("Outfit", size: 11).weight(.semibold))
+                        .tracking(0.44)
                         .frame(maxWidth: .infinity, minHeight: 36)
-                        .background(AnchoredColors.card)
-                        .foregroundStyle(AnchoredColors.navy)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(AnchoredColors.border, lineWidth: 1))
+                        .background(AnchoredColors.glass)
+                        .foregroundStyle(AnchoredColors.ink)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(AnchoredColors.line, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
 
@@ -279,24 +291,25 @@ struct ProfileView: View {
                 } label: {
                     Group {
                         if isRestoring {
-                            ProgressView().tint(AnchoredColors.navy)
+                            ProgressView().tint(AnchoredColors.ink)
                         } else {
-                            Text("Restore")
-                                .anchoredStyle(.label)
-                                .foregroundStyle(AnchoredColors.navy)
+                            Text("RESTORE")
+                                .font(.custom("Outfit", size: 11).weight(.semibold))
+                                .tracking(0.44)
+                                .foregroundStyle(AnchoredColors.ink)
                         }
                     }
                     .frame(maxWidth: .infinity, minHeight: 36)
-                    .background(AnchoredColors.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(AnchoredColors.border, lineWidth: 1))
+                    .background(AnchoredColors.glass)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(AnchoredColors.line, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .disabled(isRestoring)
             }
         }
-        .cardSurface(padding: 16)
+        .glassCard(padding: 16, cornerRadius: 20)
     }
 
     // MARK: - Achievements
@@ -304,12 +317,11 @@ struct ProfileView: View {
     private var achievementsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Achievements")
-                .anchoredStyle(.h2)
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Newsreader", size: 18).weight(.medium))
+                .foregroundStyle(AnchoredColors.ink)
 
-            // 4-column grid: fits 8 badges cleanly on iPhone portrait.
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4),
-                      spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4),
+                      spacing: 10) {
                 ForEach(Achievements.all) { achievement in
                     achievementCell(achievement)
                 }
@@ -323,21 +335,44 @@ struct ProfileView: View {
         return Button { selectedAchievement = achievement } label: {
             VStack(spacing: 6) {
                 ZStack {
-                    Circle()
-                        .fill(unlocked ? AnyShapeStyle(achievement.gradient.linearGradient)
-                                       : AnyShapeStyle(AnchoredColors.border))
-                        .frame(width: 48, height: 48)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(
+                            unlocked
+                            ? AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [Color(hex: achievement.gradient.hexStops.start),
+                                             Color(hex: achievement.gradient.hexStops.start).opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                              )
+                            : AnyShapeStyle(Color.white.opacity(0.5))
+                        )
+                        .frame(width: 46, height: 46)
+                        .overlay(
+                            Group {
+                                if !unlocked {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(AnchoredColors.line, lineWidth: 1)
+                                }
+                            }
+                        )
+                        .shadow(
+                            color: unlocked ? Color(hex: achievement.gradient.hexStops.start).opacity(0.3) : .clear,
+                            radius: 7, x: 0, y: 6
+                        )
                     Image(systemName: achievement.sfSymbol)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(unlocked ? .white : AnchoredColors.muted)
+                        .font(.system(size: 20))
+                        .foregroundStyle(unlocked ? .white : AnchoredColors.inkMute)
                 }
                 Text(achievement.title)
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(unlocked ? AnchoredColors.navy : AnchoredColors.muted)
+                    .font(.custom("Outfit", size: 10).weight(.medium))
+                    .foregroundStyle(AnchoredColors.inkSoft)
                     .multilineTextAlignment(.center)
                     .lineLimit(2, reservesSpace: true)
             }
             .frame(maxWidth: .infinity)
+            .opacity(unlocked ? 1 : 0.4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(achievement.title). \(unlocked ? "Unlocked." : "Locked.") \(achievement.description)")
@@ -348,40 +383,41 @@ struct ProfileView: View {
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Settings")
-                .anchoredStyle(.h2)
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Newsreader", size: 18).weight(.medium))
+                .foregroundStyle(AnchoredColors.ink)
 
             VStack(spacing: 0) {
                 appearanceRow
-                Divider().background(AnchoredColors.border)
+                Divider().overlay(AnchoredColors.lineSoft)
                 translationRow
-                Divider().background(AnchoredColors.border)
+                Divider().overlay(AnchoredColors.lineSoft)
                 fontSizeRow
-                Divider().background(AnchoredColors.border)
+                Divider().overlay(AnchoredColors.lineSoft)
                 reminderRow
                 if isReminderOn {
-                    Divider().background(AnchoredColors.border)
+                    Divider().overlay(AnchoredColors.lineSoft)
                     reminderTimeRow
                 }
                 if notificationStatus == .denied {
-                    Divider().background(AnchoredColors.border)
+                    Divider().overlay(AnchoredColors.lineSoft)
                     openSettingsRow
                 }
                 #if DEBUG
-                Divider().background(AnchoredColors.border)
+                Divider().overlay(AnchoredColors.lineSoft)
                 debugPremiumRow
-                Divider().background(AnchoredColors.border)
+                Divider().overlay(AnchoredColors.lineSoft)
                 resetRow
                 #endif
             }
-            .cardSurface(padding: 0)
+            .glassCard(padding: 0, cornerRadius: 20)
         }
     }
 
     private var appearanceRow: some View {
         settingRow {
             Label("Appearance", systemImage: "circle.lefthalf.filled")
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Outfit", size: 14.5).weight(.medium))
+                .foregroundStyle(AnchoredColors.ink)
         } trailing: {
             @Bindable var manager = appearanceManager
             Picker("", selection: $manager.mode) {
@@ -397,11 +433,9 @@ struct ProfileView: View {
     private var translationRow: some View {
         settingRow {
             Label("Translation", systemImage: "globe")
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Outfit", size: 14.5).weight(.medium))
+                .foregroundStyle(AnchoredColors.ink)
         } trailing: {
-            // Picker over all translations — tapping a locked one still
-            // shows the option, but selection is blocked and the paywall
-            // presents. Enforced in the onChange handler below.
             Picker("", selection: Binding(
                 get: { currentTranslation },
                 set: { newValue in
@@ -423,14 +457,15 @@ struct ProfileView: View {
                 }
             }
             .labelsHidden()
-            .tint(AnchoredColors.amber)
+            .tint(AnchoredColors.coral)
         }
     }
 
     private var fontSizeRow: some View {
         settingRow {
             Label("Font size", systemImage: "textformat.size")
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Outfit", size: 14.5).weight(.medium))
+                .foregroundStyle(AnchoredColors.ink)
         } trailing: {
             Picker("", selection: Binding(
                 get: { currentFontSize },
@@ -441,28 +476,30 @@ struct ProfileView: View {
                 }
             }
             .labelsHidden()
-            .tint(AnchoredColors.amber)
+            .tint(AnchoredColors.coral)
         }
     }
 
     private var reminderRow: some View {
         settingRow {
             Label("Daily reminder", systemImage: "bell.fill")
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Outfit", size: 14.5).weight(.medium))
+                .foregroundStyle(AnchoredColors.ink)
         } trailing: {
             Toggle("", isOn: Binding(
                 get: { isReminderOn },
                 set: { newValue in Task { await setReminder(enabled: newValue) } }
             ))
             .labelsHidden()
-            .tint(AnchoredColors.amber)
+            .tint(AnchoredColors.coral)
         }
     }
 
     private var reminderTimeRow: some View {
         settingRow {
             Label("Reminder time", systemImage: "clock.fill")
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Outfit", size: 14.5).weight(.medium))
+                .foregroundStyle(AnchoredColors.ink)
         } trailing: {
             DatePicker("", selection: Binding(
                 get: {
@@ -488,7 +525,7 @@ struct ProfileView: View {
                 }
             ), displayedComponents: .hourAndMinute)
             .labelsHidden()
-            .tint(AnchoredColors.amber)
+            .tint(AnchoredColors.coral)
         }
     }
 
@@ -505,11 +542,12 @@ struct ProfileView: View {
         } label: {
             settingRow {
                 Label("Open iOS Settings", systemImage: "arrow.up.right.square")
-                    .foregroundStyle(AnchoredColors.amber)
+                    .font(.custom("Outfit", size: 14.5).weight(.medium))
+                    .foregroundStyle(AnchoredColors.coral)
             } trailing: {
                 Text("Notifications denied")
-                    .anchoredStyle(.caption)
-                    .foregroundStyle(AnchoredColors.muted)
+                    .font(.custom("Outfit", size: 12).weight(.medium))
+                    .foregroundStyle(AnchoredColors.inkSoft)
             }
         }
         .buttonStyle(.plain)
@@ -519,14 +557,15 @@ struct ProfileView: View {
     private var debugPremiumRow: some View {
         settingRow {
             Label("Debug: Premium", systemImage: "hammer.fill")
-                .foregroundStyle(AnchoredColors.muted)
+                .font(.custom("Outfit", size: 14.5).weight(.medium))
+                .foregroundStyle(AnchoredColors.inkMute)
         } trailing: {
             Toggle("", isOn: Binding(
                 get: { premiumManager.isPremium },
                 set: { $0 ? premiumManager.debugUnlock() : premiumManager.debugLock() }
             ))
             .labelsHidden()
-            .tint(AnchoredColors.amber)
+            .tint(AnchoredColors.coral)
         }
     }
 
@@ -536,6 +575,7 @@ struct ProfileView: View {
         } label: {
             settingRow {
                 Label("Reset progress", systemImage: "arrow.counterclockwise")
+                    .font(.custom("Outfit", size: 14.5).weight(.medium))
                     .foregroundStyle(AnchoredColors.error)
             } trailing: {
                 EmptyView()
@@ -551,11 +591,10 @@ struct ProfileView: View {
     ) -> some View {
         HStack {
             label()
-                .anchoredStyle(.bodyMd)
             Spacer()
             trailing()
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 18)
         .padding(.vertical, 14)
     }
 
@@ -566,36 +605,30 @@ struct ProfileView: View {
             showSignOutConfirm = true
         } label: {
             Text("Sign out")
-                .anchoredStyle(.bodyMd)
+                .font(.custom("Outfit", size: 14.5).weight(.semibold))
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .foregroundStyle(AnchoredColors.error)
-                .background(AnchoredColors.card)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(AnchoredColors.glass)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(AnchoredColors.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(AnchoredColors.line, lineWidth: 1)
                 )
         }
     }
 
     // MARK: - Bootstrap
 
-    /// Build the StreakManager, sync the reminder toggle to real state,
-    /// and read current notification status.
     private func bootstrap() async {
         if streak == nil {
             let userId = authManager.currentUserId ?? "local-user"
             streak = StreakManager(modelContext: modelContext, userId: userId)
         }
-
-        // Keep UI in sync with the actual system + settings state.
         let status = await NotificationService.shared.currentAuthorizationStatus()
         let scheduled = await NotificationService.shared.isDailyReminderScheduled()
         notificationStatus = status
-        // Toggle is "on" only if we have permission AND a request is pending.
         isReminderOn = (status == .authorized || status == .provisional) && scheduled
-
-        // Parse the stored reminder time if any.
         if let hm = currentReminderHHMM, let parsed = parseHHMM(hm) {
             reminderHour = parsed.hour
             reminderMinute = parsed.minute
@@ -604,14 +637,8 @@ struct ProfileView: View {
 
     // MARK: - Settings mutations
 
-    /// Ensure a UserSettings row exists before mutating it. Avoids the
-    /// "tapped toggle on first launch, nothing happens" class of bug.
-    /// Named `ensureSettingsRow` to avoid collision with the @Query
-    /// property `settingsRows`.
     private func ensureSettingsRow() -> UserSettings {
-        if let existing = settingsRows.first {
-            return existing
-        }
+        if let existing = settingsRows.first { return existing }
         let fresh = UserSettings(userId: authManager.currentUserId)
         modelContext.insert(fresh)
         try? modelContext.save()
@@ -630,30 +657,22 @@ struct ProfileView: View {
         try? modelContext.save()
     }
 
-    /// Flip the daily reminder on/off. Handles the permission prompt on
-    /// first-enable and schedules via NotificationService.
     private func setReminder(enabled: Bool) async {
         if enabled {
-            // Ask for permission if we don't have it yet.
             var status = notificationStatus
             if status == .notDetermined {
                 _ = await NotificationService.shared.requestAuthorization()
                 status = await NotificationService.shared.currentAuthorizationStatus()
                 notificationStatus = status
             }
-
             guard status == .authorized || status == .provisional else {
-                // Denied or restricted — reflect real state, don't force on.
                 isReminderOn = false
                 return
             }
-
             let ok = await NotificationService.shared.scheduleDailyReminder(
-                hour: reminderHour,
-                minute: reminderMinute
+                hour: reminderHour, minute: reminderMinute
             )
             isReminderOn = ok
-
             if ok {
                 let row = ensureSettingsRow()
                 row.notificationsEnabled = true
@@ -698,9 +717,7 @@ struct ProfileView: View {
 
     private var currentTranslation: BibleTranslation {
         if let raw = settingsRows.first?.preferredTranslation,
-           let value = BibleTranslation(rawValue: raw) {
-            return value
-        }
+           let value = BibleTranslation(rawValue: raw) { return value }
         return .web
     }
 
@@ -712,20 +729,23 @@ struct ProfileView: View {
         settingsRows.first?.dailyReminderTime
     }
 
+    private var nextLevelTitle: String {
+        let titles = ["Seeker", "Disciple", "Scholar", "Teacher", "Elder", "Shepherd"]
+        let level = streak?.level ?? 1
+        return level < titles.count ? titles[level] : "Shepherd"
+    }
+
     private func parseHHMM(_ s: String) -> (hour: Int, minute: Int)? {
         let parts = s.split(separator: ":").compactMap { Int($0) }
         guard parts.count == 2 else { return nil }
         return (parts[0], parts[1])
     }
 
-    /// Build the achievement snapshot from live SwiftData + StreakManager.
     private func buildSnapshot() -> AchievementSnapshot {
         let lessonResults = progressRows
             .filter(\.completed)
             .map { AchievementSnapshot.LessonResult(
-                lessonID: $0.lessonId,
-                topicID: $0.topicId,
-                score: $0.score
+                lessonID: $0.lessonId, topicID: $0.topicId, score: $0.score
             ) }
         return AchievementSnapshot(
             completedLessons: lessonResults,
@@ -747,33 +767,34 @@ private struct OfferCodeSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 ZStack {
-                    Circle()
-                        .fill(AnchoredColors.amber.opacity(0.14))
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(AnchoredColors.coral.opacity(0.13))
                         .frame(width: 64, height: 64)
                     Image(systemName: "ticket.fill")
-                        .foregroundStyle(AnchoredColors.amber)
+                        .foregroundStyle(AnchoredColors.coral)
                         .font(.system(size: 26))
                 }
                 .padding(.top, 8)
 
                 Text("Redeem Offer Code")
-                    .anchoredStyle(.h3)
-                    .foregroundStyle(AnchoredColors.navy)
+                    .font(.custom("Newsreader", size: 22).weight(.medium))
+                    .foregroundStyle(AnchoredColors.ink)
 
                 Text("Enter your code to unlock Anchored Premium.")
-                    .anchoredStyle(.body)
-                    .foregroundStyle(AnchoredColors.muted)
+                    .font(.custom("Outfit", size: 14.5).weight(.medium))
+                    .foregroundStyle(AnchoredColors.inkSoft)
                     .multilineTextAlignment(.center)
 
                 TextField("e.g. ANCHORED-BETA", text: $code)
+                    .font(.custom("Outfit", size: 14.5).weight(.medium))
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .padding(14)
-                    .background(AnchoredColors.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(AnchoredColors.glass)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(AnchoredColors.border, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(AnchoredColors.line, lineWidth: 1)
                     )
 
                 if let result {
@@ -781,19 +802,19 @@ private struct OfferCodeSheet: View {
                     case .success:
                         Label("Premium unlocked!", systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
-                            .anchoredStyle(.bodyMd)
+                            .font(.custom("Outfit", size: 14.5).weight(.semibold))
                     case .invalid:
                         Label("Invalid code. Please try again.", systemImage: "xmark.circle.fill")
                             .foregroundStyle(AnchoredColors.error)
-                            .anchoredStyle(.bodyMd)
+                            .font(.custom("Outfit", size: 14.5).weight(.semibold))
                     case .alreadyRedeemed:
                         Label("A code has already been redeemed on this device.", systemImage: "info.circle.fill")
-                            .foregroundStyle(AnchoredColors.muted)
-                            .anchoredStyle(.bodyMd)
+                            .foregroundStyle(AnchoredColors.inkSoft)
+                            .font(.custom("Outfit", size: 14.5).weight(.semibold))
                     }
                 }
 
-                Button {
+                DawnButton(label: "Redeem", disabled: code.isEmpty) {
                     let r = premiumManager.redeemOfferCode(code)
                     result = r
                     if r == .success {
@@ -801,22 +822,12 @@ private struct OfferCodeSheet: View {
                             isPresented = false
                         }
                     }
-                } label: {
-                    Text("Redeem")
-                        .anchoredStyle(.bodyMd)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(code.isEmpty ? AnchoredColors.amber.opacity(0.4) : AnchoredColors.amber)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .disabled(code.isEmpty)
-                .buttonStyle(.plain)
 
                 Spacer()
             }
             .screenPadding()
-            .background(AnchoredColors.parchment.ignoresSafeArea())
+            .background(AnchoredColors.backgroundGradient.ignoresSafeArea())
             .navigationTitle("Offer Code")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -839,52 +850,57 @@ private struct AchievementDetailSheet: View {
     var body: some View {
         let unlocked = achievement.isUnlocked(snapshot)
         VStack(spacing: 0) {
-            // Drag indicator
             Capsule()
-                .fill(AnchoredColors.border)
+                .fill(AnchoredColors.line)
                 .frame(width: 36, height: 4)
                 .padding(.top, 12)
                 .padding(.bottom, 24)
 
-            // Badge
             ZStack {
-                Circle()
-                    .fill(unlocked ? AnyShapeStyle(achievement.gradient.linearGradient)
-                                   : AnyShapeStyle(AnchoredColors.border))
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(
+                        unlocked
+                        ? AnyShapeStyle(achievement.gradient.linearGradient)
+                        : AnyShapeStyle(AnchoredColors.line)
+                    )
                     .frame(width: 88, height: 88)
+                    .shadow(
+                        color: unlocked ? Color(hex: achievement.gradient.hexStops.start).opacity(0.3) : .clear,
+                        radius: 12, x: 0, y: 8
+                    )
                 Image(systemName: achievement.sfSymbol)
                     .font(.system(size: 38, weight: .semibold))
-                    .foregroundStyle(unlocked ? .white : AnchoredColors.muted)
+                    .foregroundStyle(unlocked ? .white : AnchoredColors.inkMute)
             }
             .padding(.bottom, 20)
 
-            // Status pill
-            Text(unlocked ? "Unlocked" : "Locked")
-                .anchoredStyle(.label)
-                .foregroundStyle(unlocked ? AnchoredColors.amber : AnchoredColors.muted)
+            Text(unlocked ? "UNLOCKED" : "LOCKED")
+                .font(.custom("Outfit", size: 11).weight(.semibold))
+                .tracking(0.44)
+                .foregroundStyle(unlocked ? AnchoredColors.coral : AnchoredColors.inkMute)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
                 .background(
-                    unlocked ? AnchoredColors.amber.opacity(0.12) : AnchoredColors.border.opacity(0.5)
+                    unlocked ? AnchoredColors.coral.opacity(0.12) : AnchoredColors.line
                 )
                 .clipShape(Capsule())
                 .padding(.bottom, 16)
 
             Text(achievement.title)
-                .anchoredStyle(.h2)
-                .foregroundStyle(AnchoredColors.navy)
+                .font(.custom("Newsreader", size: 22).weight(.medium))
+                .foregroundStyle(AnchoredColors.ink)
                 .padding(.bottom, 8)
 
             Text(achievement.description)
-                .anchoredStyle(.body)
-                .foregroundStyle(AnchoredColors.muted)
+                .font(.custom("Outfit", size: 14.5).weight(.medium))
+                .foregroundStyle(AnchoredColors.inkSoft)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
             Spacer()
         }
         .frame(maxWidth: .infinity)
-        .background(AnchoredColors.parchment.ignoresSafeArea())
+        .background(AnchoredColors.backgroundGradient.ignoresSafeArea())
         .presentationDetents([.height(340)])
         .presentationDragIndicator(.hidden)
     }
