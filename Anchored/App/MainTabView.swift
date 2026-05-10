@@ -48,9 +48,10 @@ struct MainTabView: View {
         }
     }
 
+    static let tabBarHeight: CGFloat = 96
+
     private var content: some View {
         ZStack(alignment: .bottom) {
-            // Tab content
             Group {
                 switch selectedTab {
                 case .home:
@@ -66,7 +67,6 @@ struct MainTabView: View {
                 }
             }
 
-            // Custom floating tab bar
             dawnTabBar
         }
     }

@@ -11,8 +11,8 @@ enum AnchoredColors {
     // MARK: - Surface
 
     static let paper = Color.white
-    static let glass = Color.white.opacity(0.70)
-    static let glassStrong = Color.white.opacity(0.85)
+    static let glass = Color.white.opacity(0.85)
+    static let glassStrong = Color.white.opacity(0.92)
 
     // MARK: - Ink (text + structure)
 

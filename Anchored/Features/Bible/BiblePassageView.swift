@@ -54,13 +54,16 @@ struct BiblePassageView: View {
                 if passage != nil {
                     chapterNavBar
                 }
-                Spacer(minLength: 40)
+                Spacer(minLength: MainTabView.tabBarHeight + 10)
             }
             .padding(.top, 8)
             .screenPadding()
         }
         .safeAreaInset(edge: .bottom) {
-            if !selectedVerses.isEmpty { selectionBar }
+            if !selectedVerses.isEmpty {
+                selectionBar
+                    .padding(.bottom, MainTabView.tabBarHeight)
+            }
         }
         .background(AnchoredColors.parchment.ignoresSafeArea())
         .navigationTitle(currentRef.apiReference)
@@ -334,7 +337,12 @@ struct BiblePassageView: View {
                 }
             }
         }
-        .cardSurface(padding: 20)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private func verseRow(_ verse: BibleVerse, isSelected: Bool, savedHighlight: HighlightColor?) -> some View {

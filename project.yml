@@ -66,6 +66,10 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
+        UIAppFonts:
+          - Newsreader.ttf
+          - Newsreader-Italic.ttf
+          - Outfit.ttf
         # Notification permission copy — shown only when we first ask for it.
         NSUserNotificationsUsageDescription: "Anchored uses notifications to remind you of your daily verse and prayer reminders."
     settings:

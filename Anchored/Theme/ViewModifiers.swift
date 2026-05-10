@@ -13,7 +13,7 @@ struct GlassCardModifier: ViewModifier {
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(.ultraThinMaterial)
-                    .opacity(strong ? 1 : 0.85)
+                    .opacity(strong ? 1 : 0.45)
             )
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -92,21 +92,21 @@ struct AppBackgroundModifier: ViewModifier {
             ZStack {
                 // Coral glow at top
                 RadialGradient(
-                    colors: [AnchoredColors.coralSoft.opacity(0.56), .clear],
+                    colors: [AnchoredColors.coralSoft.opacity(0.28), .clear],
                     center: UnitPoint(x: 0.5, y: -0.1),
                     startRadius: 0,
                     endRadius: 300
                 )
                 // Lilac glow at right
                 RadialGradient(
-                    colors: [AnchoredColors.lilac.opacity(0.25), .clear],
+                    colors: [AnchoredColors.lilac.opacity(0.12), .clear],
                     center: UnitPoint(x: 1.0, y: 0.5),
                     startRadius: 0,
                     endRadius: 250
                 )
                 // Blue glow at bottom-left
                 RadialGradient(
-                    colors: [AnchoredColors.blueSoft.opacity(0.50), .clear],
+                    colors: [AnchoredColors.blueSoft.opacity(0.25), .clear],
                     center: UnitPoint(x: 0.0, y: 0.9),
                     startRadius: 0,
                     endRadius: 280
