@@ -100,7 +100,7 @@ struct LessonView: View {
             }
             .screenPadding()
             .padding(.top, 8)
-            .padding(.bottom, 40)
+            .padding(.bottom, MainTabView.tabBarHeight + 10)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(AnchoredColors.parchment.ignoresSafeArea())

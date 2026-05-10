@@ -73,6 +73,24 @@ struct QuizQuestionCard: View {
             if hasAnswered {
                 explanationPanel
                     .padding(.top, 16)
+
+                Button {
+                    onContinue()
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("Continue")
+                            .font(.custom("Outfit", size: 15.5).weight(.semibold))
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(AnchoredColors.gradientPrimary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .foregroundStyle(.white)
+                    .shadow(color: AnchoredColors.coral.opacity(0.3), radius: 8, y: 4)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 12)
             }
         }
     }
