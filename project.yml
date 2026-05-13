@@ -44,6 +44,10 @@ targets:
         excludes:
           - "**/.DS_Store"
     resources: []
+    dependencies:
+      - target: AnchoredAppClip
+        embed: true
+        codeSign: true
     info:
       path: Anchored/Info.plist
       properties:
@@ -92,14 +96,81 @@ targets:
         com.apple.developer.applesignin:
           - Default
 
+  AnchoredAppClip:
+    type: application.on-demand-install-capable
+    platform: iOS
+    sources:
+      - path: AnchoredAppClip
+        excludes:
+          - "**/.DS_Store"
+    info:
+      path: AnchoredAppClip/Info.plist
+      properties:
+        NSAppClip:
+          NSAppClipRequestEphemeralUserNotification: false
+          NSAppClipRequestLocationConfirmation: false
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        CFBundleDisplayName: Anchored
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen:
+          UIColorName: ""
+          UIImageName: ""
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ios.anchoredbibleapp.Clip
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        GENERATE_INFOPLIST_FILE: "YES"
+    entitlements:
+      path: AnchoredAppClip/AnchoredAppClip.entitlements
+      properties:
+        com.apple.developer.parent-application-identifiers:
+          - "$(AppIdentifierPrefix)com.ios.anchoredbibleapp"
+
+  AnchoredAppClipTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AnchoredAppClipTests
+        excludes:
+          - "**/.DS_Store"
+    dependencies:
+      - target: AnchoredAppClip
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ios.anchoredbibleapp.AnchoredAppClipTests
+        GENERATE_INFOPLIST_FILE: "YES"
+
 schemes:
   Anchored:
     build:
       targets:
         Anchored: all
+        AnchoredAppClip: all
+        AnchoredAppClipTests: [test]
     run:
       config: Debug
     test:
       config: Debug
+      targets:
+        - AnchoredAppClipTests
+    archive:
+      config: Release
+  AnchoredAppClip:
+    build:
+      targets:
+        AnchoredAppClip: all
+        AnchoredAppClipTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - AnchoredAppClipTests
     archive:
       config: Release

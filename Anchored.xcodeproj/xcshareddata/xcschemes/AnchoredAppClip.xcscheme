@@ -15,20 +15,6 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "B688C0B300C8B1EF44B70441"
-               BuildableName = "Anchored.app"
-               BlueprintName = "Anchored"
-               ReferencedContainer = "container:Anchored.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
                BlueprintIdentifier = "CC1AF886093F145499B20A47"
                BuildableName = "AnchoredAppClip.app"
                BlueprintName = "AnchoredAppClip"
@@ -60,9 +46,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B688C0B300C8B1EF44B70441"
-            BuildableName = "Anchored.app"
-            BlueprintName = "Anchored"
+            BlueprintIdentifier = "CC1AF886093F145499B20A47"
+            BuildableName = "AnchoredAppClip.app"
+            BlueprintName = "AnchoredAppClip"
             ReferencedContainer = "container:Anchored.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -96,9 +82,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B688C0B300C8B1EF44B70441"
-            BuildableName = "Anchored.app"
-            BlueprintName = "Anchored"
+            BlueprintIdentifier = "CC1AF886093F145499B20A47"
+            BuildableName = "AnchoredAppClip.app"
+            BlueprintName = "AnchoredAppClip"
             ReferencedContainer = "container:Anchored.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -115,9 +101,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B688C0B300C8B1EF44B70441"
-            BuildableName = "Anchored.app"
-            BlueprintName = "Anchored"
+            BlueprintIdentifier = "CC1AF886093F145499B20A47"
+            BuildableName = "AnchoredAppClip.app"
+            BlueprintName = "AnchoredAppClip"
             ReferencedContainer = "container:Anchored.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
