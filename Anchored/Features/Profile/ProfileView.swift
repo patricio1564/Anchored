@@ -20,6 +20,9 @@ struct ProfileView: View {
 
     @State private var showSignOutConfirm = false
     @State private var showResetConfirm = false
+    @State private var showDeleteConfirm = false
+    @State private var showPostDeleteSIWAHint = false
+    @State private var deleteErrorMessage: String?
     @State private var selectedAchievement: Achievement?
     @State private var isRestoring = false
     @State private var showOfferCodeSheet = false
@@ -41,6 +44,7 @@ struct ProfileView: View {
                 achievementsSection
                 settingsSection
                 signOutButton
+                deleteAccountButton
                 Spacer(minLength: 40)
             }
             .padding(.top, 58)
@@ -72,6 +76,26 @@ struct ProfileView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This clears your streak and XP. Completed lessons remain.")
+        }
+        .alert("Delete Account?", isPresented: $showDeleteConfirm) {
+            Button("Delete", role: .destructive) { deleteAccount() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes your progress, streak, notes, prayers, and saved verses on this device and from iCloud. This cannot be undone.")
+        }
+        .alert("Revoke Apple ID access?", isPresented: $showPostDeleteSIWAHint) {
+            Button("Open Settings") { openAppleIDSettings() }
+            Button("Done", role: .cancel) {}
+        } message: {
+            Text("Anchored has been deleted from this device. To fully revoke Anchored's access to your Apple ID, open Settings \u{2192} Apple ID \u{2192} Sign-In & Security \u{2192} Apps Using Apple ID.")
+        }
+        .alert("Couldn\u{2019}t delete account", isPresented: Binding(
+            get: { deleteErrorMessage != nil },
+            set: { if !$0 { deleteErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { deleteErrorMessage = nil }
+        } message: {
+            Text(deleteErrorMessage ?? "")
         }
     }
 
@@ -616,6 +640,44 @@ struct ProfileView: View {
                         .stroke(AnchoredColors.line, lineWidth: 1)
                 )
         }
+    }
+
+    // MARK: - Delete account
+
+    private var deleteAccountButton: some View {
+        Button {
+            showDeleteConfirm = true
+        } label: {
+            Text("Delete Account")
+                .font(.custom("Outfit", size: 14.5).weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .foregroundStyle(AnchoredColors.error)
+                .background(AnchoredColors.glass)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(AnchoredColors.line, lineWidth: 1)
+                )
+        }
+        .accessibilityHint("Permanently deletes your account and all of your data.")
+    }
+
+    private func deleteAccount() {
+        do {
+            try authManager.deleteAccount(context: modelContext)
+            showPostDeleteSIWAHint = true
+        } catch {
+            deleteErrorMessage = "Something went wrong while deleting your data. Please try again. (\(error.localizedDescription))"
+        }
+    }
+
+    private func openAppleIDSettings() {
+        #if canImport(UIKit)
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+        #endif
     }
 
     // MARK: - Bootstrap
