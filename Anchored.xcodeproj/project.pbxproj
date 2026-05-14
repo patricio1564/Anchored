@@ -222,13 +222,6 @@
 			path = Topics;
 			sourceTree = "<group>";
 		};
-		44D84D69C6F6EE1A20E199F1 /* VerseRecommender */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = VerseRecommender;
-			sourceTree = "<group>";
-		};
 		4C5D36ADD02F9CB50973F9FD /* AnchoredAppClip */ = {
 			isa = PBXGroup;
 			children = (
@@ -297,13 +290,6 @@
 				0F8368DDDE8AC6CB57B4FA26 /* TopicCatalog.swift */,
 			);
 			path = Content;
-			sourceTree = "<group>";
-		};
-		9577C4498143520EE72D98AA /* Achievements */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Achievements;
 			sourceTree = "<group>";
 		};
 		A8B32B00144E73E6140A152C = {
@@ -382,18 +368,15 @@
 		E22C34133E97AEE1E8A9DF6A /* Features */ = {
 			isa = PBXGroup;
 			children = (
-				9577C4498143520EE72D98AA /* Achievements */,
 				DED355ADD52531D01BF8846D /* Bible */,
 				F06525D680908C334E9F9444 /* Home */,
 				D98914324A9DAD0EF7CA4E61 /* Journal */,
 				E9BDA83AF2B9582CB5369520 /* Lesson */,
 				D809E5282B24631381EAF885 /* Onboarding */,
-				F15CEB8B67E4F2D29629EC30 /* Premium */,
 				ACC114486DA43B9271444E36 /* Profile */,
 				178BA259E56FB4569807C5C5 /* Quiz */,
 				7B26346DFE966BA42208F09E /* Shared */,
 				4066173D646F65932FFF2428 /* Topics */,
-				44D84D69C6F6EE1A20E199F1 /* VerseRecommender */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -412,13 +395,6 @@
 				7D3B8B1C8F7DEA3E6F6425A6 /* HomeView.swift */,
 			);
 			path = Home;
-			sourceTree = "<group>";
-		};
-		F15CEB8B67E4F2D29629EC30 /* Premium */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Premium;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

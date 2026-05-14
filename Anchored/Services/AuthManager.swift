@@ -15,6 +15,7 @@ import Foundation
 import Combine
 import AuthenticationServices
 import Security
+import SwiftData
 
 @MainActor
 final class AuthManager: ObservableObject {
@@ -54,9 +55,34 @@ final class AuthManager: ObservableObject {
     /// Sign out — clears keychain and in-memory state. SwiftData rows are kept
     /// so signing back in on the same device restores progress.
     func signOut() {
+        clearKeychain()
+        state = .signedOut
+    }
+
+    /// Permanently delete the account: wipes all user-owned SwiftData rows
+    /// (locally and via CloudKit sync), clears the stored Apple credential
+    /// from Keychain, and resets state to `.signedOut`.
+    ///
+    /// Apple's Sign in with Apple revocation endpoint is server-side only
+    /// and would require a backend with the team's private key. The caller
+    /// should follow this up by pointing the user to Settings → Apple ID →
+    /// Sign-In & Security → Apps Using Apple ID to revoke the credential.
+    func deleteAccount(context: ModelContext) throws {
+        try context.delete(model: LessonProgress.self)
+        try context.delete(model: UserStreak.self)
+        try context.delete(model: BibleNote.self)
+        try context.delete(model: Prayer.self)
+        try context.delete(model: SavedVerse.self)
+        try context.delete(model: UserSettings.self)
+        try context.save()
+
+        clearKeychain()
+        state = .signedOut
+    }
+
+    private func clearKeychain() {
         deleteFromKeychain(account: Self.keychainAccount)
         deleteFromKeychain(account: Self.displayNameAccount)
-        state = .signedOut
     }
 
     // MARK: - Session restore
