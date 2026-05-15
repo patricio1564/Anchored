@@ -44,8 +44,9 @@ struct ProfileView: View {
                 achievementsSection
                 settingsSection
                 signOutButton
+                legalLinks
                 deleteAccountButton
-                Spacer(minLength: 40)
+                Spacer(minLength: 120)
             }
             .padding(.top, 58)
             .padding(.bottom, 24)
@@ -640,6 +641,20 @@ struct ProfileView: View {
                         .stroke(AnchoredColors.line, lineWidth: 1)
                 )
         }
+    }
+
+    // MARK: - Legal
+
+    private var legalLinks: some View {
+        HStack(spacing: 0) {
+            Link("Privacy Policy", destination: URL(string: "https://patricio1564.github.io/Anchored/privacy-policy")!)
+            Text(" \u{00B7} ")
+                .foregroundStyle(AnchoredColors.inkMute)
+            Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+        }
+        .font(.custom("Outfit", size: 13).weight(.medium))
+        .tint(AnchoredColors.inkSoft)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Delete account
