@@ -647,7 +647,7 @@ struct ProfileView: View {
 
     private var legalLinks: some View {
         HStack(spacing: 0) {
-            Link("Privacy Policy", destination: URL(string: "https://patricio1564.github.io/Anchored/privacy-policy")!)
+            Link("Privacy Policy", destination: URL(string: "https://github.com/patricio1564/Anchored/blob/main/privacypolicy")!)
             Text(" \u{00B7} ")
                 .foregroundStyle(AnchoredColors.inkMute)
             Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
